@@ -1,0 +1,3 @@
+[submodule "icicle-emu"]
+	path = icicle-emu
+	url = https://github.com/mrexodia/icicle-emu
