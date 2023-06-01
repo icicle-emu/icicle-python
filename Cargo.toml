@@ -1,11 +1,20 @@
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [package]
 name = "icicle-unicorn"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "icicle"
+crate-type = ["cdylib"]
 
 [dependencies]
 icicle-cpu = { path = "icicle-emu/icicle-cpu" }
 icicle-vm = { path = "icicle-emu/icicle-vm" }
 pcode = { path = "icicle-emu/sleigh/pcode" }
+pyo3 = { version = "0.18.3", features = ["extension-module"] }
+target-lexicon = "0.12.7"
+
+[build-dependencies]
+pyo3-build-config = "0.18.3"

@@ -2,3 +2,5 @@
 target/
 debug/
 **/*.rs.bk
+venv*/
+.env/
