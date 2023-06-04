@@ -57,7 +57,7 @@ def old_test():
     print(vm)
 
 def main():
-    vm = icicle.Icicle("x86_64", jit=True)
+    vm = icicle.Icicle("x86_64", jit=False)
     print(vm)
 
     addr = 0x10000

@@ -1,17 +1,10 @@
-mod rawenv;
-
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fmt;
-use std::fmt::{format, Formatter};
 use icicle_cpu::mem::{Mapping, MemError, perm};
 use icicle_cpu::{ExceptionCode, VmExit};
 use pyo3::prelude::*;
 use icicle_vm;
-use icicle_vm::{BuildError, Vm};
 use icicle_vm::linux::LinuxCpu;
-use pyo3::types::{PyList, PyTuple};
-use pyo3::{create_exception, import_exception};
 use pyo3::exceptions::*;
 use target_lexicon;
 use indexmap::IndexMap;
@@ -268,32 +261,58 @@ impl Icicle {
     }
 
     #[new]
-    #[args(architecture, jit = false, recompilation = false)]
-    fn new(architecture: String, jit: bool, recompilation: bool) -> PyResult<Self> {
+    #[pyo3(signature = (
+        architecture,
+        jit = true,
+        jit_mem = true,
+        shadow_stack = true,
+        recompilation = true,
+        track_uninitialized = false,
+        optimize_instructions = true,
+        optimize_block = true,
+    ))]
+    fn new(
+        architecture: String,
+        jit: bool,
+        jit_mem: bool,
+        shadow_stack: bool,
+        recompilation: bool,
+        track_uninitialized: bool,
+        optimize_instructions: bool,
+        optimize_block: bool,
+    ) -> PyResult<Self> {
+        // Prevent mixing '_' and '-'
         if architecture.split("-").count() != 1 {
             return Err(
                 PyException::new_err(format!("Bad architecture format: {architecture}"))
             );
         }
+
         // Setup the CPU state for the target triple
-        let mut cpu_config = icicle_vm::cpu::Config::from_target_triple(
+        let mut config = icicle_vm::cpu::Config::from_target_triple(
             format!("{architecture}-none").as_str()
         );
-        if cpu_config.triple.architecture == target_lexicon::Architecture::Unknown {
+        if config.triple.architecture == target_lexicon::Architecture::Unknown {
             return Err(
                 PyException::new_err(format!("Unknown architecture: {architecture}"))
             );
         }
 
-        cpu_config.enable_jit = jit;
-        cpu_config.enable_recompilation = recompilation;
+        // Configuration
+        config.enable_jit = jit;
+        config.enable_jit_mem = jit_mem;
+        config.enable_shadow_stack = shadow_stack;
+        config.enable_recompilation = recompilation;
+        config.track_uninitialized = track_uninitialized;
+        config.optimize_instructions = optimize_instructions;
+        config.optimize_block = optimize_block;
 
-        let mut vm = icicle_vm::build(&cpu_config)
+        let vm = icicle_vm::build(&config)
             .map_err(|e| {
                 PyException::new_err(format!("VM build error: {e}"))
             })?;
 
-        // Get the lowercase register map
+        // Populate the lowercase register map
         let mut regs = HashMap::new();
         let sleigh = vm.cpu.sleigh();
         for reg in &sleigh.named_registers {
@@ -403,8 +422,6 @@ impl Icicle {
     }
 
     fn run(&mut self) -> RunStatus {
-        // TODO: do we have to clear the exception?
-
         match self.vm.run() {
             VmExit::Running => RunStatus::Running,
             VmExit::InstructionLimit => RunStatus::InstructionLimit,

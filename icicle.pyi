@@ -77,7 +77,15 @@ class MemoryError(Exception):
     code: MemoryErrorCode
 
 class Icicle:
-    def __init__(self, architecture: str, *, jit=False, recompilation=False) -> None: ...
+    def __init__(self, architecture: str, *,
+                 jit = True,
+                 jit_mem = True,
+                 shadow_stack = True,
+                 recompilation = True,
+                 track_uninitialized = False,
+                 optimize_instructions = True,
+                 optimize_block = True,
+                 ) -> None: ...
 
     @property
     def exception_code(self) -> ExceptionCode: ...
