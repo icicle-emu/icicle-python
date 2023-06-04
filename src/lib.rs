@@ -1,25 +1,24 @@
 mod rawenv;
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{format, Formatter};
 use icicle_cpu::mem::{Mapping, MemError, perm};
 use pyo3::prelude::*;
 use icicle_vm;
 use icicle_vm::{BuildError, Vm};
+use icicle_vm::linux::LinuxCpu;
 use pyo3::types::PyList;
 use pyo3::{create_exception, import_exception};
-use pyo3::exceptions::PyException;
+use pyo3::exceptions::*;
 use target_lexicon;
+use indexmap::IndexMap;
+use sleigh_runtime::NamedRegister;
 
 // References:
 // - https://pyo3.rs/main/conversions/tables
 // - https://pyo3.rs/main/class
-
-#[pyclass(unsendable, module = "icicle")]
-struct Icicle {
-    vm: icicle_vm::Vm,
-}
 
 #[pyclass(module = "icicle")]
 #[derive(Clone)]
@@ -89,13 +88,32 @@ fn convert_protection(protection: MemoryProtection) -> u8 {
     }
 }
 
+#[pyclass(unsendable, module = "icicle")]
+struct Icicle {
+    vm: icicle_vm::Vm,
+    regs: HashMap<String, NamedRegister>,
+}
+
+fn reg_find<'a>(i: &'a Icicle, name: &str) -> PyResult<&'a NamedRegister> {
+    let sleigh = i.vm.cpu.sleigh();
+    match sleigh.get_reg(name) {
+        None => {
+            i.regs.get(name.to_lowercase().as_str())
+                .ok_or(
+                    PyKeyError::new_err(format!("Register not found: {name}"))
+                )
+        }
+        Some(r) => Ok(r),
+    }
+}
+
 #[pymethods]
 impl Icicle {
     #[new]
     fn new(architecture: String) -> PyResult<Self> {
         if architecture.split("-").count() != 1 {
             return Err(
-                pyo3::exceptions::PyException::new_err(format!("Bad architecture format: {architecture}"))
+                PyException::new_err(format!("Bad architecture format: {architecture}"))
             );
         }
         // Setup the CPU state for the target triple
@@ -104,7 +122,7 @@ impl Icicle {
         );
         if cpu_config.triple.architecture == target_lexicon::Architecture::Unknown {
             return Err(
-                pyo3::exceptions::PyException::new_err(format!("Unknown architecture: {architecture}"))
+                PyException::new_err(format!("Unknown architecture: {architecture}"))
             );
         }
 
@@ -114,11 +132,20 @@ impl Icicle {
 
         let mut vm = icicle_vm::build(&cpu_config)
             .map_err(|e| {
-                pyo3::exceptions::PyException::new_err(format!("VM build error: {e}"))
+                PyException::new_err(format!("VM build error: {e}"))
             })?;
+
+        // Get the lowercase register map
+        let mut regs = HashMap::new();
+        let sleigh = vm.cpu.sleigh();
+        for reg in &sleigh.named_registers {
+            let name = sleigh.get_str(reg.name);
+            regs.insert(name.to_lowercase(), reg.clone());
+        }
 
         Ok(Icicle {
             vm,
+            regs,
         })
     }
 
@@ -170,7 +197,7 @@ impl Icicle {
             .map_err(|e| {
                 raise_MemoryError(
                     format!("Failed to read memory {address:X}[{size:X}]"),
-                    e
+                    e,
                 )
             })?;
         return Ok(Cow::Owned(buffer));
@@ -182,9 +209,35 @@ impl Icicle {
             .map_err(|e| {
                 raise_MemoryError(
                     format!("Failed to write memory {address:X}[{size:X}]"),
-                    e
+                    e,
                 )
             })
+    }
+
+    fn reg_list(&self) -> PyResult<IndexMap<String, (u32, u8)>> {
+        let mut result = IndexMap::new();
+        let sleigh = self.vm.cpu.sleigh();
+        for reg in &sleigh.named_registers {
+            let name = sleigh.get_str(reg.name);
+            result.insert(name.to_string(), (reg.offset, reg.var.size));
+        }
+        return Ok(result);
+    }
+
+    fn reg_offset(&self, name: &str) -> PyResult<u32> {
+        Ok(reg_find(self, name)?.offset)
+    }
+
+    fn reg_size(&self, name: &str) -> PyResult<u8> {
+        Ok(reg_find(self, name)?.var.size)
+    }
+
+    fn reg_read(&mut self, name: &str) -> PyResult<u64> {
+        Ok(self.vm.cpu.read_reg(reg_find(self, name)?.var))
+    }
+
+    fn reg_write(&mut self, name: &str, value: u64) -> PyResult<()> {
+        Ok(self.vm.cpu.write_reg(reg_find(self, name)?.var, value))
     }
 }
 

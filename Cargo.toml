@@ -13,7 +13,9 @@ crate-type = ["cdylib"]
 icicle-cpu = { path = "icicle-emu/icicle-cpu" }
 icicle-vm = { path = "icicle-emu/icicle-vm" }
 pcode = { path = "icicle-emu/sleigh/pcode" }
-pyo3 = { version = "0.18.3", features = ["extension-module"] }
+sleigh-runtime = { path = "icicle-emu/sleigh/sleigh-runtime" }
+indexmap = "1.9.3"
+pyo3 = { version = "0.18.3", features = ["extension-module", "indexmap"] }
 target-lexicon = "0.12.7"
 
 [build-dependencies]

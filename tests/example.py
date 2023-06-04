@@ -7,6 +7,10 @@ def main():
     print(f"Architectures: {icicle.architectures()}")
     vm = icicle.Icicle("i686")
 
+    for name, (offset, size) in vm.reg_list().items():
+        value = vm.reg_read(name.lower())
+        print(f"{name}[{size}] @ {offset} = {value}")
+
     addr = 0x10000
     vm.mem_map(addr, 0x1000, icicle.MemoryProtection.NoAccess)
     try:
