@@ -27,6 +27,7 @@ enum MemoryProtection {
     NoAccess,
     ReadOnly,
     ReadWrite,
+    ExecuteOnly,
     ExecuteRead,
     ExecuteReadWrite,
 }
@@ -209,6 +210,7 @@ fn convert_protection(protection: MemoryProtection) -> u8 {
         MemoryProtection::NoAccess => perm::NONE,
         MemoryProtection::ReadOnly => perm::READ,
         MemoryProtection::ReadWrite => perm::READ | perm::WRITE,
+        MemoryProtection::ExecuteOnly => perm::EXEC,
         MemoryProtection::ExecuteRead => perm::EXEC | perm::READ,
         MemoryProtection::ExecuteReadWrite => perm::EXEC | perm::READ | perm::WRITE,
     }
