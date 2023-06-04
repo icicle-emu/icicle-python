@@ -5,11 +5,12 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{format, Formatter};
 use icicle_cpu::mem::{Mapping, MemError, perm};
+use icicle_cpu::{ExceptionCode, VmExit};
 use pyo3::prelude::*;
 use icicle_vm;
 use icicle_vm::{BuildError, Vm};
 use icicle_vm::linux::LinuxCpu;
-use pyo3::types::PyList;
+use pyo3::types::{PyList, PyTuple};
 use pyo3::{create_exception, import_exception};
 use pyo3::exceptions::*;
 use target_lexicon;
@@ -28,6 +29,40 @@ enum MemoryProtection {
     ReadWrite,
     ExecuteRead,
     ExecuteReadWrite,
+}
+
+#[pyclass(module = "icicle")]
+#[derive(Clone)]
+enum RunStatus {
+    /// The VM is still running.
+    Running,
+
+    /// The VM exited because it reached instruction count limit.
+    InstructionLimit,
+
+    /// The VM exited because it reached a breakpoint.
+    Breakpoint,
+
+    /// The VM exited because the interrupt flag was set.
+    Interrupted,
+
+    /// The VM has halted.
+    Halt,
+
+    /// Killed by an environment specific mechanism.
+    Killed,
+
+    /// A deadlock was detected.
+    Deadlock,
+
+    /// MMU was unable to allocate memory for an operation.
+    OutOfMemory,
+
+    /// Internal error where the emulator reached unimplemented code.
+    Unimplemented,
+
+    /// The VM exited due to a unhandled exception.
+    UnhandledException,
 }
 
 #[pyclass(module = "icicle")]
@@ -63,6 +98,97 @@ impl From<MemError> for MemoryErrorCode {
             MemError::SelfModifyingCode => MemoryErrorCode::SelfModifyingCode,
             MemError::AddressOverflow => MemoryErrorCode::AddressOverflow,
             MemError::Unknown => MemoryErrorCode::Unknown,
+        }
+    }
+}
+
+#[pyclass(module = "icicle", name = "ExceptionCode")]
+#[derive(Clone)]
+enum ExceptionCodePy {
+    NoException = 0x0000,
+
+    InstructionLimit = 0x0001,
+    Halt = 0x0002,
+    Sleep = 0x0003,
+
+    Syscall = 0x0101,
+    CpuStateChanged = 0x0102,
+    DivideByZero = 0x0103,
+
+    ReadUnmapped = 0x0201,
+    ReadPerm = 0x0202,
+    ReadUnaligned = 0x0203,
+    ReadWatch = 0x0204,
+    ReadUninitialized = 0x0205,
+
+    WriteUnmapped = 0x0301,
+    WritePerm = 0x0302,
+    WriteWatch = 0x0303,
+    WriteUnaligned = 0x0304,
+
+    ExecViolation = 0x0401,
+    SelfModifyingCode = 0x0402,
+    OutOfMemory = 0x0501,
+    AddressOverflow = 0x0502,
+
+    InvalidInstruction = 0x1001,
+    UnknownInterrupt = 0x1002,
+    UnknownCpuID = 0x1003,
+    InvalidOpSize = 0x1004,
+    InvalidFloatSize = 0x1005,
+    CodeNotTranslated = 0x1006,
+    ShadowStackOverflow = 0x1007,
+    ShadowStackInvalid = 0x1008,
+    InvalidTarget = 0x1009,
+    UnimplementedOp = 0x100a,
+
+    ExternalAddr = 0x2001,
+    Environment = 0x2002,
+
+    JitError = 0x3001,
+    InternalError = 0x3002,
+
+    UnknownError,
+}
+
+impl From<ExceptionCode> for ExceptionCodePy {
+    fn from(value: ExceptionCode) -> Self {
+        match value {
+            ExceptionCode::None => ExceptionCodePy::NoException,
+            ExceptionCode::InstructionLimit => ExceptionCodePy::InstructionLimit,
+            ExceptionCode::Halt => ExceptionCodePy::Halt,
+            ExceptionCode::Sleep => ExceptionCodePy::Sleep,
+            ExceptionCode::Syscall => ExceptionCodePy::Syscall,
+            ExceptionCode::CpuStateChanged => ExceptionCodePy::CpuStateChanged,
+            ExceptionCode::DivideByZero => ExceptionCodePy::DivideByZero,
+            ExceptionCode::ReadUnmapped => ExceptionCodePy::ReadUnmapped,
+            ExceptionCode::ReadPerm => ExceptionCodePy::ReadPerm,
+            ExceptionCode::ReadUnaligned => ExceptionCodePy::ReadUnaligned,
+            ExceptionCode::ReadWatch => ExceptionCodePy::ReadWatch,
+            ExceptionCode::ReadUninitialized => ExceptionCodePy::ReadUninitialized,
+            ExceptionCode::WriteUnmapped => ExceptionCodePy::WriteUnmapped,
+            ExceptionCode::WritePerm => ExceptionCodePy::WritePerm,
+            ExceptionCode::WriteWatch => ExceptionCodePy::WriteWatch,
+            ExceptionCode::WriteUnaligned => ExceptionCodePy::WriteUnaligned,
+            ExceptionCode::ExecViolation => ExceptionCodePy::ExecViolation,
+            ExceptionCode::SelfModifyingCode => ExceptionCodePy::SelfModifyingCode,
+            ExceptionCode::OutOfMemory => ExceptionCodePy::OutOfMemory,
+            ExceptionCode::AddressOverflow => ExceptionCodePy::AddressOverflow,
+            ExceptionCode::InvalidInstruction => ExceptionCodePy::InvalidInstruction,
+            ExceptionCode::UnknownInterrupt => ExceptionCodePy::UnknownInterrupt,
+            ExceptionCode::UnknownCpuID => ExceptionCodePy::UnknownCpuID,
+            ExceptionCode::InvalidOpSize => ExceptionCodePy::InvalidOpSize,
+            ExceptionCode::InvalidFloatSize => ExceptionCodePy::InvalidFloatSize,
+            ExceptionCode::CodeNotTranslated => ExceptionCodePy::CodeNotTranslated,
+            ExceptionCode::ShadowStackOverflow => ExceptionCodePy::ShadowStackOverflow,
+            ExceptionCode::ShadowStackInvalid => ExceptionCodePy::ShadowStackInvalid,
+            ExceptionCode::InvalidTarget => ExceptionCodePy::InvalidTarget,
+            ExceptionCode::UnimplementedOp => ExceptionCodePy::UnimplementedOp,
+            ExceptionCode::ExternalAddr => ExceptionCodePy::ExternalAddr,
+            ExceptionCode::Environment => ExceptionCodePy::Environment,
+            ExceptionCode::JitError => ExceptionCodePy::JitError,
+            ExceptionCode::InternalError => ExceptionCodePy::InternalError,
+            ExceptionCode::UnknownError => ExceptionCodePy::UnknownError,
         }
     }
 }
@@ -109,8 +235,39 @@ fn reg_find<'a>(i: &'a Icicle, name: &str) -> PyResult<&'a NamedRegister> {
 
 #[pymethods]
 impl Icicle {
+    #[getter]
+    fn get_icount_limit(&mut self) -> u64 {
+        self.vm.icount_limit
+    }
+
+    #[setter]
+    fn set_icount_limit(&mut self, value: u64) {
+        self.vm.icount_limit = value;
+    }
+
+    #[getter]
+    fn get_icount(&mut self) -> u64 {
+        return self.vm.cpu.icount;
+    }
+
+    #[setter]
+    fn set_icount(&mut self, value: u64) {
+        self.vm.cpu.icount = value;
+    }
+
+    #[getter]
+    fn get_exception_code(&self) -> ExceptionCodePy {
+        ExceptionCode::from_u32(self.vm.cpu.exception.code).into()
+    }
+
+    #[getter]
+    fn get_exception_value(&self) -> u64 {
+        self.vm.cpu.exception.value
+    }
+
     #[new]
-    fn new(architecture: String) -> PyResult<Self> {
+    #[args(architecture, jit = false, recompilation = false)]
+    fn new(architecture: String, jit: bool, recompilation: bool) -> PyResult<Self> {
         if architecture.split("-").count() != 1 {
             return Err(
                 PyException::new_err(format!("Bad architecture format: {architecture}"))
@@ -126,9 +283,8 @@ impl Icicle {
             );
         }
 
-        // TODO: allow these to be customized
-        cpu_config.enable_jit = false;
-        cpu_config.enable_recompilation = false;
+        cpu_config.enable_jit = jit;
+        cpu_config.enable_recompilation = recompilation;
 
         let mut vm = icicle_vm::build(&cpu_config)
             .map_err(|e| {
@@ -239,6 +395,52 @@ impl Icicle {
     fn reg_write(&mut self, name: &str, value: u64) -> PyResult<()> {
         Ok(self.vm.cpu.write_reg(reg_find(self, name)?.var, value))
     }
+
+    fn reset(&mut self) {
+        self.vm.reset();
+    }
+
+    fn run(&mut self) -> RunStatus {
+        // TODO: do we have to clear the exception?
+
+        match self.vm.run() {
+            VmExit::Running => RunStatus::Running,
+            VmExit::InstructionLimit => RunStatus::InstructionLimit,
+            VmExit::Breakpoint => RunStatus::Breakpoint,
+            VmExit::Interrupted => RunStatus::Interrupted,
+            VmExit::Halt => RunStatus::Halt,
+            VmExit::Killed => RunStatus::Killed,
+            VmExit::Deadlock => RunStatus::Deadlock,
+            VmExit::OutOfMemory => RunStatus::OutOfMemory,
+            VmExit::Unimplemented => RunStatus::Unimplemented,
+            VmExit::UnhandledException(_) => RunStatus::UnhandledException,
+        }
+    }
+
+    fn run_until(&mut self, address: u64) -> RunStatus {
+        let breakpoint_added = self.vm.add_breakpoint(address);
+        let status = self.run();
+        if breakpoint_added {
+            self.vm.remove_breakpoint(address);
+        }
+        status
+    }
+
+    fn step(&mut self, count: u64) -> RunStatus {
+        let old_limit = self.vm.icount_limit;
+        self.vm.icount_limit = self.vm.cpu.icount.saturating_add(count);
+        let status = self.run();
+        self.vm.icount_limit = old_limit;
+        status
+    }
+
+    fn add_breakpoint(&mut self, address: u64) -> bool {
+        self.vm.add_breakpoint(address)
+    }
+
+    fn remove_breakpoint(&mut self, address: u64) -> bool {
+        self.vm.remove_breakpoint(address)
+    }
 }
 
 #[pyfunction]
@@ -259,6 +461,8 @@ fn icicle(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<Icicle>()?;
     m.add_class::<MemoryProtection>()?;
     m.add_class::<MemoryErrorCode>()?;
+    m.add_class::<RunStatus>()?;
+    m.add_class::<ExceptionCodePy>()?;
     PyModule::from_code(py, r#"
 class MemoryError(Exception):
     def __init__(self, message, code):
