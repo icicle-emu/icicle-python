@@ -270,6 +270,7 @@ impl Icicle {
         track_uninitialized = false,
         optimize_instructions = true,
         optimize_block = true,
+        tracing = false,
     ))]
     fn new(
         architecture: String,
@@ -280,12 +281,20 @@ impl Icicle {
         track_uninitialized: bool,
         optimize_instructions: bool,
         optimize_block: bool,
+        tracing: bool,
     ) -> PyResult<Self> {
         // Prevent mixing '_' and '-'
         if architecture.split("-").count() != 1 {
             return Err(
                 PyException::new_err(format!("Bad architecture format: {architecture}"))
             );
+        }
+
+        if tracing {
+            tracing_subscriber::fmt()
+                .with_max_level(tracing::Level::DEBUG)
+                .with_target(false)
+                .init();
         }
 
         // Setup the CPU state for the target triple

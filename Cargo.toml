@@ -17,6 +17,8 @@ sleigh-runtime = { path = "icicle-emu/sleigh/sleigh-runtime" }
 indexmap = "1.9.3"
 pyo3 = { version = "0.18.3", features = ["extension-module", "indexmap"] }
 target-lexicon = "0.12.7"
+tracing = "*"
+tracing-subscriber = "0.3.17"
 
 [build-dependencies]
 pyo3-build-config = "0.18.3"

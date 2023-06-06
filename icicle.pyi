@@ -85,6 +85,7 @@ class Icicle:
                  track_uninitialized = False,
                  optimize_instructions = True,
                  optimize_block = True,
+                 tracing = False,
                  ) -> None: ...
 
     @property
