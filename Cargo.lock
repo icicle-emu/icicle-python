@@ -241,12 +241,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
-name = "fixedbitset"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
-
-[[package]]
 name = "flate2"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -356,7 +350,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "icicle-unicorn"
+name = "icicle-python"
 version = "0.1.0"
 dependencies = [
  "icicle-cpu",
@@ -540,16 +534,6 @@ dependencies = [
 [[package]]
 name = "pcode"
 version = "0.2.0"
-
-[[package]]
-name = "petgraph"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dd7d28ee937e54fe3080c91faa1c3a46c06de6252988a7f4592ba2310ef22a4"
-dependencies = [
- "fixedbitset",
- "indexmap",
-]
 
 [[package]]
 name = "pin-project-lite"
@@ -738,7 +722,6 @@ name = "sleigh-compile"
 version = "0.3.0"
 dependencies = [
  "pcode",
- "petgraph",
  "sleigh-parse",
  "sleigh-runtime",
 ]

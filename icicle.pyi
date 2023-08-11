@@ -98,7 +98,11 @@ class Icicle:
 
     icount_limit: int
 
+    # TODO: API to get memory information?
+
     def mem_map(self, address: int, size: int, protection: MemoryProtection): ...
+
+    def mem_unmap(self, address: int, size: int): ...
 
     def mem_protect(self, address: int, size: int, protection: MemoryProtection): ...
 

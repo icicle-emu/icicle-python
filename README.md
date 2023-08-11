@@ -1,6 +1,6 @@
-# icicle-unicorn
+# icicle-python
 
-This project is an attempt to replace unicorn with a wrapper around [icicle-emu](https://github.com/icicle-emu/icicle-emu).
+This project is an easy to use Python wrapper around [icicle-emu](https://github.com/icicle-emu/icicle-emu).
 
 ## Requirements
 
@@ -8,6 +8,10 @@ This project is an attempt to replace unicorn with a wrapper around [icicle-emu]
 - [Rust 1.48](https://rustup.rs/)
 
 ## Building
+
+TODO: talk about the submodule
+
+TODO: clone ghidra and set `GHIDRA_SRC` environment variable
 
 Set up a virtual environment:
 

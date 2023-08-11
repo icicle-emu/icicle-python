@@ -122,6 +122,7 @@ enum ExceptionCodePy {
 
     ExecViolation = 0x0401,
     SelfModifyingCode = 0x0402,
+    ExecUnaligned = 0x0404,
     OutOfMemory = 0x0501,
     AddressOverflow = 0x0502,
 
@@ -166,6 +167,7 @@ impl From<ExceptionCode> for ExceptionCodePy {
             ExceptionCode::WriteUnaligned => ExceptionCodePy::WriteUnaligned,
             ExceptionCode::ExecViolation => ExceptionCodePy::ExecViolation,
             ExceptionCode::SelfModifyingCode => ExceptionCodePy::SelfModifyingCode,
+            ExceptionCode::ExecUnaligned => ExceptionCodePy::ExecUnaligned,
             ExceptionCode::OutOfMemory => ExceptionCodePy::OutOfMemory,
             ExceptionCode::AddressOverflow => ExceptionCodePy::AddressOverflow,
             ExceptionCode::InvalidInstruction => ExceptionCodePy::InvalidInstruction,
@@ -290,11 +292,13 @@ impl Icicle {
             );
         }
 
+        // TODO: support instantiating this multiple times
         if tracing {
-            tracing_subscriber::fmt()
+            if tracing_subscriber::fmt()
                 .with_max_level(tracing::Level::DEBUG)
                 .with_target(false)
-                .init();
+                .try_init().is_err() {
+            }
         }
 
         // Setup the CPU state for the target triple
@@ -356,6 +360,19 @@ impl Icicle {
             Err(
                 raise_MemoryError(
                     format!("Failed to map memory {address:X}[{size:X}]"),
+                    MemError::Unknown,
+                )
+            )
+        }
+    }
+
+    fn mem_unmap(&mut self, address: u64, size: u64) -> PyResult<()> {
+        if self.vm.cpu.mem.unmap_memory_len(address, size) {
+            Ok(())
+        } else {
+            Err(
+                raise_MemoryError(
+                    format!("Failed to unmap memory {address:X}[{size:X}]"),
                     MemError::Unknown,
                 )
             )

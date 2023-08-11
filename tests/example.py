@@ -9,10 +9,13 @@ def assemble(code: str, addr: int = 0) -> bytes:
         raise keystone.KsError("no encoding")
     return bytes(encoding)
 
-def disassemble(code: bytes, addr: int = 0) -> str:
+def disassemble(code: bytes, addr: int = 0, max_count = 1000) -> str:
     result = ""
     cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
-    while True:
+    count = 0
+    while count < max_count:
+        count += 1
+        # TODO: fix on invalid instruction
         for address, size, mnemonic, op_str in cs.disasm_lite(code, addr, 1):
             if len(result) > 0:
                 result += "\n"
@@ -25,6 +28,7 @@ def disassemble(code: bytes, addr: int = 0) -> str:
             if len(code) == 0:
                 return result
             addr += size
+    return result
 
 def old_test():
     buf = assemble("mov eax, ebx\nnop")
