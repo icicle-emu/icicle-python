@@ -4,3 +4,5 @@ debug/
 **/*.rs.bk
 venv*/
 .env/
+dist/
+.DS_Store
