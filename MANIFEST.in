@@ -1,0 +1,12 @@
+include Cargo.lock
+include Cargo.toml
+include README.md
+include build.rs
+include requirements.txt
+include copy-ghidra.py
+recursive-include src *
+recursive-include icicle-emu *
+recursive-include python *.py
+recursive-include python *.pyi
+recursive-include python py.typed
+recursive-include python/icicle/Ghidra *

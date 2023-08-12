@@ -49,6 +49,7 @@ def old_test():
     try:
         vm.mem_protect(addr, 0x2000, icicle.MemoryProtection.ExecuteRead)
     except icicle.MemoryError as x:
+        print("MemoryError working!")
         message = x.args[0]
         print(message, x.code)
     except Exception as x:
@@ -61,6 +62,8 @@ def old_test():
     print(vm)
 
 def main():
+    old_test()
+
     vm = icicle.Icicle("x86_64", jit=False)
     print(vm)
 

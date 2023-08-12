@@ -501,32 +501,12 @@ fn architectures() -> PyResult<Vec<&'static str>> {
 /// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
 /// import the module.
 #[pymodule]
-fn icicle(py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn icicle(_: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(architectures, m)?)?;
     m.add_class::<Icicle>()?;
     m.add_class::<MemoryProtection>()?;
     m.add_class::<MemoryErrorCode>()?;
     m.add_class::<RunStatus>()?;
     m.add_class::<ExceptionCodePy>()?;
-    PyModule::from_code(py, r#"
-class MemoryError(Exception):
-    def __init__(self, message, code):
-        super().__init__(message)
-        self.code = code
-    def __str__(self):
-        return f"{super().__str__()}: {self.code}"
-
-def __ghidra_init():
-    import os
-    for path in __path__ + [os.getenv("GHIDRA_SRC")]:
-        processors_dir = os.path.join(path, "Ghidra/Processors")
-        if os.path.isdir(processors_dir):
-            os.putenv("GHIDRA_SRC", path)
-            os.environ["GHIDRA_SRC"] = path
-            return
-    raise FileNotFoundError("Ghidra processors not found")
-
-__ghidra_init()
-"#, "icicle_exceptions.py", "icicle")?;
     Ok(())
 }

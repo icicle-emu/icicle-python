@@ -5,4 +5,10 @@ debug/
 venv*/
 .env/
 dist/
+build/
 .DS_Store
+__pycache__/
+*.egg-info/
+*.so
+*.dll
+*.dylib
