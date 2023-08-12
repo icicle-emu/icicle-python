@@ -2,16 +2,17 @@
 
 This project is an easy to use Python wrapper around [icicle-emu](https://github.com/icicle-emu/icicle-emu). You can read more about Icicle in the paper: [Icicle: A Re-designed Emulator for Grey-Box Firmware Fuzzing](https://arxiv.org/pdf/2301.13346.pdf)
 
-## Requirements
+## Installation
 
-- [Python 3.7+](https://www.python.org/downloads/)
-- [Rust 1.48](https://rustup.rs/)
+You can install the [latest release](https://github.com/mrexodia/icicle-python/releases) from [PyPI](https://pypi.org/project/icicle-emu):
 
-## Building
+```
+pip -m install icicle-emu
+```
 
-TODO: talk about the submodule
+## Development
 
-TODO: clone ghidra and set `GHIDRA_SRC` environment variable
+_Note_: You need to install [Rust 1.48](https://rustup.rs) or later to build from source.
 
 Set up a virtual environment:
 
@@ -27,5 +28,5 @@ Get the dependencies and build:
 
 ```shell
 pip install -r requirements.txt
-maturin develop
+python setup.py develop
 ```

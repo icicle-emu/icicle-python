@@ -11,7 +11,7 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"Rust not found, visit https://rustup.rs for installation instructions")
 
     ref_name = getenv("GITHUB_REF_NAME")
-    if ref_name:
+    if getenv("GITHUB_REF", "").startswith("refs/tags/") and ref_name:
         from pkg_resources import parse_version
         try:
             parse_version(ref_name)
