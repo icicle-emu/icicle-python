@@ -104,6 +104,7 @@ enum ExceptionCodePy {
     InstructionLimit = 0x0001,
     Halt = 0x0002,
     Sleep = 0x0003,
+    SoftwareBreakpoint = 0x0004,
 
     Syscall = 0x0101,
     CpuStateChanged = 0x0102,
@@ -122,7 +123,8 @@ enum ExceptionCodePy {
 
     ExecViolation = 0x0401,
     SelfModifyingCode = 0x0402,
-    ExecUnaligned = 0x0404,
+    ExecUnaligned = 0x0403,
+
     OutOfMemory = 0x0501,
     AddressOverflow = 0x0502,
 
@@ -153,6 +155,7 @@ impl From<ExceptionCode> for ExceptionCodePy {
             ExceptionCode::InstructionLimit => ExceptionCodePy::InstructionLimit,
             ExceptionCode::Halt => ExceptionCodePy::Halt,
             ExceptionCode::Sleep => ExceptionCodePy::Sleep,
+            ExceptionCode::SoftwareBreakpoint => ExceptionCodePy::SoftwareBreakpoint,
             ExceptionCode::Syscall => ExceptionCodePy::Syscall,
             ExceptionCode::CpuStateChanged => ExceptionCodePy::CpuStateChanged,
             ExceptionCode::DivideByZero => ExceptionCodePy::DivideByZero,

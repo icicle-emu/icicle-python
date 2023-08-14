@@ -1,4 +1,3 @@
-from os import makedirs
 from pathlib import Path
 from shutil import copytree, rmtree
 from argparse import ArgumentParser
@@ -27,13 +26,6 @@ def main():
         print(f"Processor: {name}")
         processor_root = target_root.joinpath(name, "data", "languages")
         copytree(languages, processor_root, dirs_exist_ok=True)
-        continue
-        for file in languages.glob("*"):
-            if not file.is_file():
-                print(f"Skip: {file}")
-                continue
-            destination = processor_root.joinpath(file.name)
-            print(f"Copy {file} -> {destination}")
 
 if __name__ == "__main__":
     main()
