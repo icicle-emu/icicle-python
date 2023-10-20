@@ -39,6 +39,7 @@ def old_test():
     print(icicle.MemoryProtection.ReadOnly)
     print(f"Architectures: {icicle.architectures()}")
     vm = icicle.Icicle("x86_64")
+    print(vm)
 
     for name, (offset, size) in vm.reg_list().items():
         value = vm.reg_read(name.lower())
@@ -59,11 +60,10 @@ def old_test():
     data = vm.mem_read(addr, 4)
     print(data, type(data))
 
-    print(vm)
-
 def main():
     old_test()
 
+    print("")
     vm = icicle.Icicle("x86_64", jit=False)
     print(vm)
 
@@ -86,9 +86,10 @@ nop
     print(status)
     if status == icicle.RunStatus.UnhandledException:
         print(f"code: {vm.exception_code}, value: {hex(vm.exception_value)}")
-        print(f"rip: {hex(vm.reg_read('rip'))}")
+        print(f"rip: {hex(vm.reg_read('rip'))} (OK)")
     else:
         print(f"rax: {hex(vm.reg_read('rax'))}")
+        assert False, "Should be unreachable"
 
 if __name__ == "__main__":
     main()
