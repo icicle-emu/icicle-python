@@ -14,11 +14,11 @@ icicle-cpu = { path = "icicle-emu/icicle-cpu" }
 icicle-vm = { path = "icicle-emu/icicle-vm" }
 pcode = { path = "icicle-emu/sleigh/pcode" }
 sleigh-runtime = { path = "icicle-emu/sleigh/sleigh-runtime" }
-indexmap = "1.9.3"
-pyo3 = { version = "0.19.2", features = ["extension-module", "indexmap", "abi3-py37"] }
+indexmap = "2.2.6"
+pyo3 = { version = "0.21.2", features = ["extension-module", "indexmap", "abi3-py37"] }
 target-lexicon = "0.12.7"
 tracing = "*"
 tracing-subscriber = "0.3.17"
 
 [build-dependencies]
-pyo3-build-config = "0.19.2"
+pyo3-build-config = "0.21.2"

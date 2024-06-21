@@ -60,9 +60,10 @@ enum RunStatus {
 }
 
 #[pyclass(module = "icicle")]
-enum MemoryErrorCode {
+enum MemoryExceptionCode {
     Unallocated,
     Unmapped,
+    UnmappedRegister,
     Uninitialized,
     ReadViolation,
     WriteViolation,
@@ -76,22 +77,23 @@ enum MemoryErrorCode {
     Unknown,
 }
 
-impl From<MemError> for MemoryErrorCode {
+impl From<MemError> for MemoryExceptionCode {
     fn from(value: MemError) -> Self {
         match value {
-            MemError::Unallocated => MemoryErrorCode::Unallocated,
-            MemError::Unmapped => MemoryErrorCode::Unmapped,
-            MemError::Uninitalized => MemoryErrorCode::Uninitialized,
-            MemError::ReadViolation => MemoryErrorCode::ReadViolation,
-            MemError::WriteViolation => MemoryErrorCode::WriteViolation,
-            MemError::ExecViolation => MemoryErrorCode::ExecViolation,
-            MemError::ReadWatch => MemoryErrorCode::ReadWatch,
-            MemError::WriteWatch => MemoryErrorCode::WriteWatch,
-            MemError::Unaligned => MemoryErrorCode::Unaligned,
-            MemError::OutOfMemory => MemoryErrorCode::OutOfMemory,
-            MemError::SelfModifyingCode => MemoryErrorCode::SelfModifyingCode,
-            MemError::AddressOverflow => MemoryErrorCode::AddressOverflow,
-            MemError::Unknown => MemoryErrorCode::Unknown,
+            MemError::Unallocated => MemoryExceptionCode::Unallocated,
+            MemError::Unmapped => MemoryExceptionCode::Unmapped,
+            MemError::UnmappedRegister => MemoryExceptionCode::UnmappedRegister,
+            MemError::Uninitalized => MemoryExceptionCode::Uninitialized,
+            MemError::ReadViolation => MemoryExceptionCode::ReadViolation,
+            MemError::WriteViolation => MemoryExceptionCode::WriteViolation,
+            MemError::ExecViolation => MemoryExceptionCode::ExecViolation,
+            MemError::ReadWatch => MemoryExceptionCode::ReadWatch,
+            MemError::WriteWatch => MemoryExceptionCode::WriteWatch,
+            MemError::Unaligned => MemoryExceptionCode::Unaligned,
+            MemError::OutOfMemory => MemoryExceptionCode::OutOfMemory,
+            MemError::SelfModifyingCode => MemoryExceptionCode::SelfModifyingCode,
+            MemError::AddressOverflow => MemoryExceptionCode::AddressOverflow,
+            MemError::Unknown => MemoryExceptionCode::Unknown,
         }
     }
 }
@@ -108,7 +110,7 @@ enum ExceptionCodePy {
 
     Syscall = 0x0101,
     CpuStateChanged = 0x0102,
-    DivideByZero = 0x0103,
+    DivisionException = 0x0103,
 
     ReadUnmapped = 0x0201,
     ReadPerm = 0x0202,
@@ -144,6 +146,7 @@ enum ExceptionCodePy {
 
     JitError = 0x3001,
     InternalError = 0x3002,
+    UnmappedRegister = 0x3003,
 
     UnknownError,
 }
@@ -158,7 +161,7 @@ impl From<ExceptionCode> for ExceptionCodePy {
             ExceptionCode::SoftwareBreakpoint => ExceptionCodePy::SoftwareBreakpoint,
             ExceptionCode::Syscall => ExceptionCodePy::Syscall,
             ExceptionCode::CpuStateChanged => ExceptionCodePy::CpuStateChanged,
-            ExceptionCode::DivideByZero => ExceptionCodePy::DivideByZero,
+            ExceptionCode::DivisionException => ExceptionCodePy::DivisionException,
             ExceptionCode::ReadUnmapped => ExceptionCodePy::ReadUnmapped,
             ExceptionCode::ReadPerm => ExceptionCodePy::ReadPerm,
             ExceptionCode::ReadUnaligned => ExceptionCodePy::ReadUnaligned,
@@ -187,17 +190,18 @@ impl From<ExceptionCode> for ExceptionCodePy {
             ExceptionCode::Environment => ExceptionCodePy::Environment,
             ExceptionCode::JitError => ExceptionCodePy::JitError,
             ExceptionCode::InternalError => ExceptionCodePy::InternalError,
+            ExceptionCode::UnmappedRegister => ExceptionCodePy::UnmappedRegister,
             ExceptionCode::UnknownError => ExceptionCodePy::UnknownError,
         }
     }
 }
 
 #[allow(non_snake_case)]
-fn raise_MemoryError(message: String, e: MemError) -> PyErr {
+fn raise_MemoryException(message: String, e: MemError) -> PyErr {
     Python::with_gil(|py| {
         let icicle = py.import("icicle").unwrap();
-        let exception = icicle.getattr("MemoryError").unwrap();
-        let args = (message, MemoryErrorCode::from(e));
+        let exception = icicle.getattr("MemoryException").unwrap();
+        let args = (message, MemoryExceptionCode::from(e));
         let inst = exception.call1(args).unwrap();
         PyErr::from_value(inst)
     })
@@ -361,7 +365,7 @@ impl Icicle {
             Ok(())
         } else {
             Err(
-                raise_MemoryError(
+                raise_MemoryException(
                     format!("Failed to map memory {address:X}[{size:X}]"),
                     MemError::Unknown,
                 )
@@ -374,7 +378,7 @@ impl Icicle {
             Ok(())
         } else {
             Err(
-                raise_MemoryError(
+                raise_MemoryException(
                     format!("Failed to unmap memory {address:X}[{size:X}]"),
                     MemError::Unknown,
                 )
@@ -385,7 +389,7 @@ impl Icicle {
     fn mem_protect(&mut self, address: u64, size: usize, protection: MemoryProtection) -> PyResult<()> {
         self.vm.cpu.mem.update_perm(address, size as u64, convert_protection(protection))
             .map_err(|e| {
-                raise_MemoryError(
+                raise_MemoryException(
                     format!("Failed to protect memory {address:X}[{size:X}]"),
                     e,
                 )
@@ -401,7 +405,7 @@ impl Icicle {
         // Read the memory
         self.vm.cpu.mem.read_bytes(address, &mut buffer[..], perm::NONE)
             .map_err(|e| {
-                raise_MemoryError(
+                raise_MemoryException(
                     format!("Failed to read memory {address:X}[{size:X}]"),
                     e,
                 )
@@ -413,7 +417,7 @@ impl Icicle {
         let size = data.len();
         self.vm.cpu.mem.write_bytes(address, &data[..], perm::NONE)
             .map_err(|e| {
-                raise_MemoryError(
+                raise_MemoryException(
                     format!("Failed to write memory {address:X}[{size:X}]"),
                     e,
                 )
@@ -508,7 +512,7 @@ fn icicle(_: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(architectures, m)?)?;
     m.add_class::<Icicle>()?;
     m.add_class::<MemoryProtection>()?;
-    m.add_class::<MemoryErrorCode>()?;
+    m.add_class::<MemoryExceptionCode>()?;
     m.add_class::<RunStatus>()?;
     m.add_class::<ExceptionCodePy>()?;
     Ok(())
