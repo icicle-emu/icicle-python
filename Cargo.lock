@@ -406,7 +406,7 @@ dependencies = [
 
 [[package]]
 name = "icicle-python"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "icicle-cpu",
  "icicle-vm",
