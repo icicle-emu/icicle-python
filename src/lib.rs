@@ -274,7 +274,7 @@ impl Icicle {
         architecture,
         jit = true,
         jit_mem = true,
-        shadow_stack = true,
+        shadow_stack = false,
         recompilation = true,
         track_uninitialized = false,
         optimize_instructions = true,

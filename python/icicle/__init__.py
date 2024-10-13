@@ -79,7 +79,7 @@ class Icicle:
     def __init__(self, architecture: str, *,
                  jit = True,
                  jit_mem = True,
-                 shadow_stack = True,
+                 shadow_stack = False,
                  recompilation = True,
                  track_uninitialized = False,
                  optimize_instructions = True,
