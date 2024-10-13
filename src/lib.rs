@@ -220,6 +220,7 @@ fn convert_protection(protection: MemoryProtection) -> u8 {
 
 #[pyclass(unsendable, module = "icicle")]
 struct Icicle {
+    architecture: String,
     vm: icicle_vm::Vm,
     regs: HashMap<String, NamedRegister>,
 }
@@ -267,6 +268,11 @@ impl Icicle {
     #[getter]
     fn get_exception_value(&self) -> u64 {
         self.vm.cpu.exception.value
+    }
+
+    #[getter]
+    fn get_architecture(&self) -> String {
+        self.architecture.to_string()
     }
 
     #[new]
@@ -341,6 +347,7 @@ impl Icicle {
         }
 
         Ok(Icicle {
+            architecture,
             vm,
             regs,
         })
@@ -353,7 +360,7 @@ impl Icicle {
         } else {
             "little endian"
         };
-        format!("Icicle VM for {0:?} ({endianness})", arch.triple.architecture)
+        format!("Icicle VM for {0:?} ({endianness})", self.architecture)
     }
 
     fn mem_map(&mut self, address: u64, size: u64, protection: MemoryProtection) -> PyResult<()> {

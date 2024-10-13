@@ -88,6 +88,9 @@ class Icicle:
                  ) -> None: ...
 
     @property
+    def architecture(self) -> str: ...
+
+    @property
     def exception_code(self) -> ExceptionCode: ...
 
     @property
