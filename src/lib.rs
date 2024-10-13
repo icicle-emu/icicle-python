@@ -199,11 +199,11 @@ impl From<ExceptionCode> for ExceptionCodePy {
 #[allow(non_snake_case)]
 fn raise_MemoryException(message: String, e: MemError) -> PyErr {
     Python::with_gil(|py| {
-        let icicle = py.import("icicle").unwrap();
+        let icicle = py.import_bound("icicle").unwrap();
         let exception = icicle.getattr("MemoryException").unwrap();
         let args = (message, MemoryExceptionCode::from(e));
         let inst = exception.call1(args).unwrap();
-        PyErr::from_value(inst)
+        PyErr::from_value_bound(inst)
     })
 }
 
@@ -508,7 +508,7 @@ fn architectures() -> PyResult<Vec<&'static str>> {
 /// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
 /// import the module.
 #[pymodule]
-fn icicle(_: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn icicle(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(architectures, m)?)?;
     m.add_class::<Icicle>()?;
     m.add_class::<MemoryProtection>()?;
