@@ -14,9 +14,9 @@ use sleigh_runtime::NamedRegister;
 // - https://pyo3.rs/main/conversions/tables
 // - https://pyo3.rs/main/class
 
-#[pyclass(module = "icicle")]
-#[derive(Clone)]
-enum MemoryProtection {
+#[pyclass(eq, eq_int, module = "icicle")]
+#[derive(Clone, Debug, PartialEq)]
+pub enum MemoryProtection {
     NoAccess,
     ReadOnly,
     ReadWrite,
@@ -25,9 +25,9 @@ enum MemoryProtection {
     ExecuteReadWrite,
 }
 
-#[pyclass(module = "icicle")]
-#[derive(Clone)]
-enum RunStatus {
+#[pyclass(eq, eq_int, module = "icicle")]
+#[derive(Clone, Debug, PartialEq)]
+pub enum RunStatus {
     /// The VM is still running.
     Running,
 
@@ -59,8 +59,9 @@ enum RunStatus {
     UnhandledException,
 }
 
-#[pyclass(module = "icicle")]
-enum MemoryExceptionCode {
+#[pyclass(eq, eq_int, module = "icicle")]
+#[derive(Clone, Debug, PartialEq)]
+pub enum MemoryExceptionCode {
     Unallocated,
     Unmapped,
     UnmappedRegister,
@@ -98,9 +99,9 @@ impl From<MemError> for MemoryExceptionCode {
     }
 }
 
-#[pyclass(module = "icicle", name = "ExceptionCode")]
-#[derive(Clone)]
-enum ExceptionCodePy {
+#[pyclass(eq, eq_int, module = "icicle", name = "ExceptionCode")]
+#[derive(Clone, Debug, PartialEq)]
+pub enum ExceptionCodePy {
     NoException = 0x0000,
 
     InstructionLimit = 0x0001,
@@ -219,7 +220,8 @@ fn convert_protection(protection: MemoryProtection) -> u8 {
 }
 
 #[pyclass(unsendable, module = "icicle")]
-struct Icicle {
+pub struct Icicle {
+    architecture: String,
     vm: icicle_vm::Vm,
     regs: HashMap<String, NamedRegister>,
 }
@@ -240,33 +242,38 @@ fn reg_find<'a>(i: &'a Icicle, name: &str) -> PyResult<&'a NamedRegister> {
 #[pymethods]
 impl Icicle {
     #[getter]
-    fn get_icount_limit(&mut self) -> u64 {
+    pub fn get_icount_limit(&mut self) -> u64 {
         self.vm.icount_limit
     }
 
     #[setter]
-    fn set_icount_limit(&mut self, value: u64) {
+    pub fn set_icount_limit(&mut self, value: u64) {
         self.vm.icount_limit = value;
     }
 
     #[getter]
-    fn get_icount(&mut self) -> u64 {
+    pub fn get_icount(&mut self) -> u64 {
         return self.vm.cpu.icount;
     }
 
     #[setter]
-    fn set_icount(&mut self, value: u64) {
+    pub fn set_icount(&mut self, value: u64) {
         self.vm.cpu.icount = value;
     }
 
     #[getter]
-    fn get_exception_code(&self) -> ExceptionCodePy {
+    pub fn get_exception_code(&self) -> ExceptionCodePy {
         ExceptionCode::from_u32(self.vm.cpu.exception.code).into()
     }
 
     #[getter]
-    fn get_exception_value(&self) -> u64 {
+    pub fn get_exception_value(&self) -> u64 {
         self.vm.cpu.exception.value
+    }
+
+    #[getter]
+    pub fn get_architecture(&self) -> String {
+        self.architecture.to_string()
     }
 
     #[new]
@@ -274,14 +281,14 @@ impl Icicle {
         architecture,
         jit = true,
         jit_mem = true,
-        shadow_stack = true,
+        shadow_stack = false,
         recompilation = true,
         track_uninitialized = false,
         optimize_instructions = true,
-        optimize_block = true,
+        optimize_block = false,
         tracing = false,
     ))]
-    fn new(
+    pub fn new(
         architecture: String,
         jit: bool,
         jit_mem: bool,
@@ -341,22 +348,23 @@ impl Icicle {
         }
 
         Ok(Icicle {
+            architecture,
             vm,
             regs,
         })
     }
 
-    fn __str__(&mut self) -> String {
+    pub fn __str__(&mut self) -> String {
         let arch = &self.vm.cpu.arch;
         let endianness = if arch.sleigh.big_endian {
             "big endian"
         } else {
             "little endian"
         };
-        format!("Icicle VM for {0:?} ({endianness})", arch.triple.architecture)
+        format!("Icicle VM for {0:?} ({endianness})", self.architecture)
     }
 
-    fn mem_map(&mut self, address: u64, size: u64, protection: MemoryProtection) -> PyResult<()> {
+    pub fn mem_map(&mut self, address: u64, size: u64, protection: MemoryProtection) -> PyResult<()> {
         let mapping = Mapping {
             perm: convert_protection(protection),
             value: 0,
@@ -373,7 +381,7 @@ impl Icicle {
         }
     }
 
-    fn mem_unmap(&mut self, address: u64, size: u64) -> PyResult<()> {
+    pub fn mem_unmap(&mut self, address: u64, size: u64) -> PyResult<()> {
         if self.vm.cpu.mem.unmap_memory_len(address, size) {
             Ok(())
         } else {
@@ -386,7 +394,7 @@ impl Icicle {
         }
     }
 
-    fn mem_protect(&mut self, address: u64, size: usize, protection: MemoryProtection) -> PyResult<()> {
+    pub fn mem_protect(&mut self, address: u64, size: usize, protection: MemoryProtection) -> PyResult<()> {
         self.vm.cpu.mem.update_perm(address, size as u64, convert_protection(protection))
             .map_err(|e| {
                 raise_MemoryException(
@@ -397,7 +405,7 @@ impl Icicle {
         Ok(())
     }
 
-    fn mem_read(&mut self, address: u64, size: usize) -> PyResult<Cow<[u8]>> {
+    pub fn mem_read(&mut self, address: u64, size: usize) -> PyResult<Cow<[u8]>> {
         // Allocate a buffer
         let mut buffer = Vec::with_capacity(size);
         buffer.resize(size, 0);
@@ -413,7 +421,7 @@ impl Icicle {
         return Ok(Cow::Owned(buffer));
     }
 
-    fn mem_write(&mut self, address: u64, data: Vec<u8>) -> PyResult<()> {
+    pub fn mem_write(&mut self, address: u64, data: Vec<u8>) -> PyResult<()> {
         let size = data.len();
         self.vm.cpu.mem.write_bytes(address, &data[..], perm::NONE)
             .map_err(|e| {
@@ -424,7 +432,7 @@ impl Icicle {
             })
     }
 
-    fn reg_list(&self) -> PyResult<IndexMap<String, (u32, u8)>> {
+    pub fn reg_list(&self) -> PyResult<IndexMap<String, (u32, u8)>> {
         let mut result = IndexMap::new();
         let sleigh = self.vm.cpu.sleigh();
         for reg in &sleigh.named_registers {
@@ -434,27 +442,27 @@ impl Icicle {
         return Ok(result);
     }
 
-    fn reg_offset(&self, name: &str) -> PyResult<u32> {
+    pub fn reg_offset(&self, name: &str) -> PyResult<u32> {
         Ok(reg_find(self, name)?.offset)
     }
 
-    fn reg_size(&self, name: &str) -> PyResult<u8> {
+    pub fn reg_size(&self, name: &str) -> PyResult<u8> {
         Ok(reg_find(self, name)?.var.size)
     }
 
-    fn reg_read(&mut self, name: &str) -> PyResult<u64> {
+    pub fn reg_read(&mut self, name: &str) -> PyResult<u64> {
         Ok(self.vm.cpu.read_reg(reg_find(self, name)?.var))
     }
 
-    fn reg_write(&mut self, name: &str, value: u64) -> PyResult<()> {
+    pub fn reg_write(&mut self, name: &str, value: u64) -> PyResult<()> {
         Ok(self.vm.cpu.write_reg(reg_find(self, name)?.var, value))
     }
 
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.vm.reset();
     }
 
-    fn run(&mut self) -> RunStatus {
+    pub fn run(&mut self) -> RunStatus {
         match self.vm.run() {
             VmExit::Running => RunStatus::Running,
             VmExit::InstructionLimit => RunStatus::InstructionLimit,
@@ -469,7 +477,7 @@ impl Icicle {
         }
     }
 
-    fn run_until(&mut self, address: u64) -> RunStatus {
+    pub fn run_until(&mut self, address: u64) -> RunStatus {
         let breakpoint_added = self.vm.add_breakpoint(address);
         let status = self.run();
         if breakpoint_added {
@@ -478,7 +486,7 @@ impl Icicle {
         status
     }
 
-    fn step(&mut self, count: u64) -> RunStatus {
+    pub fn step(&mut self, count: u64) -> RunStatus {
         let old_limit = self.vm.icount_limit;
         self.vm.icount_limit = self.vm.cpu.icount.saturating_add(count);
         let status = self.run();
@@ -486,17 +494,17 @@ impl Icicle {
         status
     }
 
-    fn add_breakpoint(&mut self, address: u64) -> bool {
+    pub fn add_breakpoint(&mut self, address: u64) -> bool {
         self.vm.add_breakpoint(address)
     }
 
-    fn remove_breakpoint(&mut self, address: u64) -> bool {
+    pub fn remove_breakpoint(&mut self, address: u64) -> bool {
         self.vm.remove_breakpoint(address)
     }
 }
 
 #[pyfunction]
-fn architectures() -> PyResult<Vec<&'static str>> {
+pub fn architectures() -> PyResult<Vec<&'static str>> {
     Ok(vec![
         "i686",
         "x86_64",
@@ -508,7 +516,7 @@ fn architectures() -> PyResult<Vec<&'static str>> {
 /// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
 /// import the module.
 #[pymodule]
-fn icicle(_: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn icicle(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(architectures, m)?)?;
     m.add_class::<Icicle>()?;
     m.add_class::<MemoryProtection>()?;

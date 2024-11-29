@@ -1,281 +1,11 @@
-use std::borrow::Cow;
-use std::collections::HashMap;
-use icicle_cpu::mem::{Mapping, perm};
-use icicle_cpu::{VmExit};
-use icicle_vm;
-use icicle_vm::linux::LinuxCpu;
-use target_lexicon;
-use indexmap::IndexMap;
-use sleigh_runtime::NamedRegister;
+#![allow(special_module_name)]
+mod lib;
 
-#[allow(dead_code)]
-#[derive(Clone)]
-enum MemoryProtection {
-    NoAccess,
-    ReadOnly,
-    ReadWrite,
-    ExecuteOnly,
-    ExecuteRead,
-    ExecuteReadWrite,
-}
+use lib::*;
+use pyo3::PyResult;
 
-struct Icicle {
-    vm: icicle_vm::Vm,
-    regs: HashMap<String, NamedRegister>,
-}
-
-fn convert_protection(protection: MemoryProtection) -> u8 {
-    match protection {
-        MemoryProtection::NoAccess => perm::NONE,
-        MemoryProtection::ReadOnly => perm::READ,
-        MemoryProtection::ReadWrite => perm::READ | perm::WRITE,
-        MemoryProtection::ExecuteOnly => perm::EXEC,
-        MemoryProtection::ExecuteRead => perm::EXEC | perm::READ,
-        MemoryProtection::ExecuteReadWrite => perm::EXEC | perm::READ | perm::WRITE,
-    }
-}
-
-fn reg_find<'a>(i: &'a Icicle, name: &str) -> Result<&'a NamedRegister, String> {
-    let sleigh = i.vm.cpu.sleigh();
-    match sleigh.get_reg(name) {
-        None => {
-            i.regs.get(name.to_lowercase().as_str())
-                .ok_or(
-                    format!("Register not found: {name}")
-                )
-        }
-        Some(r) => Ok(r),
-    }
-}
-
-impl Icicle {
-    #[allow(dead_code)]
-    fn get_icount_limit(&mut self) -> u64 {
-        self.vm.icount_limit
-    }
-
-    #[allow(dead_code)]
-    fn set_icount_limit(&mut self, value: u64) {
-        self.vm.icount_limit = value;
-    }
-
-    #[allow(dead_code)]
-    fn get_icount(&mut self) -> u64 {
-        return self.vm.cpu.icount;
-    }
-
-    #[allow(dead_code)]
-    fn set_icount(&mut self, value: u64) {
-        self.vm.cpu.icount = value;
-    }
-
-    fn new(
-        architecture: String,
-        jit: bool,
-        jit_mem: bool,
-        shadow_stack: bool,
-        recompilation: bool,
-        track_uninitialized: bool,
-        optimize_instructions: bool,
-        optimize_block: bool,
-        tracing: bool,
-    ) -> Result<Self, String> {
-        // Prevent mixing '_' and '-'
-        if architecture.split("-").count() != 1 {
-            return Err(
-                format!("Bad architecture format: {architecture}")
-            );
-        }
-
-        // TODO: support instantiating this multiple times
-        if tracing {
-            tracing_subscriber::fmt()
-                .with_max_level(tracing::Level::DEBUG)
-                .with_target(false)
-                .init();
-        }
-
-        // Setup the CPU state for the target triple
-        let mut config = icicle_vm::cpu::Config::from_target_triple(
-            format!("{architecture}-none").as_str()
-        );
-        if config.triple.architecture == target_lexicon::Architecture::Unknown {
-            return Err(
-                format!("Unknown architecture: {architecture}")
-            );
-        }
-
-        // Configuration
-        config.enable_jit = jit;
-        config.enable_jit_mem = jit_mem;
-        config.enable_shadow_stack = shadow_stack;
-        config.enable_recompilation = recompilation;
-        config.track_uninitialized = track_uninitialized;
-        config.optimize_instructions = optimize_instructions;
-        config.optimize_block = optimize_block;
-
-        let vm = icicle_vm::build(&config)
-            .map_err(|e| {
-                format!("VM build error: {e}")
-            })?;
-
-        // Populate the lowercase register map
-        let mut regs = HashMap::new();
-        let sleigh = vm.cpu.sleigh();
-        for reg in &sleigh.named_registers {
-            let name = sleigh.get_str(reg.name);
-            regs.insert(name.to_lowercase(), reg.clone());
-        }
-
-        Ok(Icicle {
-            vm,
-            regs,
-        })
-    }
-
-    fn __str__(&mut self) -> String {
-        let arch = &self.vm.cpu.arch;
-        let endianness = if arch.sleigh.big_endian {
-            "big endian"
-        } else {
-            "little endian"
-        };
-        format!("Icicle VM for {0:?} ({endianness})", arch.triple.architecture)
-    }
-
-    fn mem_map(&mut self, address: u64, size: u64, protection: MemoryProtection) -> Result<(), String> {
-        let mapping = Mapping {
-            perm: convert_protection(protection),
-            value: 0,
-        };
-        if self.vm.cpu.mem.map_memory_len(address, size, mapping) {
-            Ok(())
-        } else {
-            Err(
-                format!("Failed to map memory {address:X}[{size:X}]")
-            )
-        }
-    }
-
-    #[allow(dead_code)]
-    fn mem_unmap(&mut self, address: u64, size: u64) -> Result<(), String> {
-        if self.vm.cpu.mem.unmap_memory_len(address, size) {
-            Ok(())
-        } else {
-            Err(
-                format!("Failed to unmap memory {address:X}[{size:X}]")
-            )
-        }
-    }
-
-    fn mem_protect(&mut self, address: u64, size: usize, protection: MemoryProtection) -> Result<(), String> {
-        self.vm.cpu.mem.update_perm(address, size as u64, convert_protection(protection))
-            .map_err(|_| {
-                format!("Failed to protect memory {address:X}[{size:X}]")
-            })?;
-        Ok(())
-    }
-
-    #[allow(dead_code)]
-    fn mem_read(&mut self, address: u64, size: usize) -> Result<Cow<[u8]>, String> {
-        // Allocate a buffer
-        let mut buffer = Vec::with_capacity(size);
-        buffer.resize(size, 0);
-
-        // Read the memory
-        match self.vm.cpu.mem.read_bytes(address, &mut buffer[..], perm::NONE) {
-            Ok(_) => Ok(Cow::Owned(buffer)),
-            Err(_) => Err(format!("Failed to read memory {address:X}[{size:X}]"))
-        }
-    }
-
-    fn mem_write(&mut self, address: u64, data: Vec<u8>) -> Result<(), String> {
-        let size = data.len();
-        match self.vm.cpu.mem.write_bytes(address, &data[..], perm::NONE) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(format!("Failed to write memory {address:X}[{size:X}]"))
-        }
-    }
-
-    #[allow(dead_code)]
-    fn reg_list(&self) -> IndexMap<String, (u32, u8)> {
-        let mut result = IndexMap::new();
-        let sleigh = self.vm.cpu.sleigh();
-        for reg in &sleigh.named_registers {
-            let name = sleigh.get_str(reg.name);
-            result.insert(name.to_string(), (reg.offset, reg.var.size));
-        }
-        return result;
-    }
-
-    #[allow(dead_code)]
-    fn reg_offset(&self, name: &str) -> Result<u32, String> {
-        Ok(reg_find(self, name)?.offset)
-    }
-
-    #[allow(dead_code)]
-    fn reg_size(&self, name: &str) -> Result<u8, String> {
-        Ok(reg_find(self, name)?.var.size)
-    }
-
-    fn reg_read(&mut self, name: &str) -> Result<u64, String> {
-        Ok(self.vm.cpu.read_reg(reg_find(self, name)?.var))
-    }
-
-    fn reg_write(&mut self, name: &str, value: u64) -> Result<(), String> {
-        Ok(self.vm.cpu.write_reg(reg_find(self, name)?.var, value))
-    }
-
-    #[allow(dead_code)]
-    fn reset(&mut self) {
-        self.vm.reset();
-    }
-
-    fn run(&mut self) -> VmExit {
-        self.vm.run()
-    }
-
-    #[allow(dead_code)]
-    fn run_until(&mut self, address: u64) -> VmExit {
-        let breakpoint_added = self.vm.add_breakpoint(address);
-        let status = self.run();
-        if breakpoint_added {
-            self.vm.remove_breakpoint(address);
-        }
-        status
-    }
-
-    #[allow(dead_code)]
-    fn step(&mut self, count: u64) -> VmExit {
-        let old_limit = self.vm.icount_limit;
-        self.vm.icount_limit = self.vm.cpu.icount.saturating_add(count);
-        let status = self.run();
-        self.vm.icount_limit = old_limit;
-        status
-    }
-
-    #[allow(dead_code)]
-    fn add_breakpoint(&mut self, address: u64) -> bool {
-        self.vm.add_breakpoint(address)
-    }
-
-    #[allow(dead_code)]
-    fn remove_breakpoint(&mut self, address: u64) -> bool {
-        self.vm.remove_breakpoint(address)
-    }
-}
-
-#[allow(dead_code)]
-fn architectures() -> Result<Vec<&'static str>, String> {
-    Ok(vec![
-        "i686",
-        "x86_64",
-        "aarch64",
-    ])
-}
-
-fn nx_start() {
-    let mut vm = Icicle::new(
+fn nx_start() -> PyResult<()> {
+    let mut vm: Icicle = Icicle::new(
         "x86_64".to_string(),
         false,
         true,
@@ -285,19 +15,21 @@ fn nx_start() {
         true,
         true,
         false,
-    ).unwrap();
+    )?;
     let page = 0x10000;
-    vm.mem_map(page, 0x1000, MemoryProtection::ReadOnly).unwrap();
+    vm.mem_map(page, 0x1000, MemoryProtection::ReadOnly)?;
     // <non-executable memory> inc eax; ret
-    vm.mem_write(page, b"\xFF\xC0\xC3".to_vec()).unwrap();
-    vm.reg_write("rip", page).unwrap();
+    vm.mem_write(page, b"\xFF\xC0\xC3".to_vec())?;
+    vm.reg_write("rip", page)?;
     let status = vm.run();
     println!("status: {:?}", status);
-    println!("rip: {:#x}", vm.reg_read("rip").unwrap());
+    println!("rip: {:#x}", vm.reg_read("rip")?);
+
+    Ok(())
 }
 
-fn nx_middle() {
-    let mut vm = Icicle::new(
+fn nx_middle() -> PyResult<()> {
+    let mut vm: Icicle = Icicle::new(
         "x86_64".to_string(),
         false,
         true,
@@ -307,22 +39,24 @@ fn nx_middle() {
         true,
         true,
         false,
-    ).unwrap();
+    )?;
     let page = 0x10000;
-    vm.mem_map(page, 0x2000, MemoryProtection::ExecuteRead).unwrap();
-    vm.mem_protect(page + 0x1000, 0x1000, MemoryProtection::ReadOnly).unwrap();
+    vm.mem_map(page, 0x2000, MemoryProtection::ExecuteRead)?;
+    vm.mem_protect(page + 0x1000, 0x1000, MemoryProtection::ReadOnly)?;
     // inc eax; inc eax; <transition to non-executable region>; ret
     let rip = page + 0x1000 - 2;
-    vm.mem_write(rip, b"\xFF\xC0\xFF\xC0\xC3".to_vec()).unwrap();
-    vm.reg_write("rip", rip).unwrap();
+    vm.mem_write(rip, b"\xFF\xC0\xFF\xC0\xC3".to_vec())?;
+    vm.reg_write("rip", rip)?;
     let status = vm.run();
     println!("status: {:?}", status);
-    println!("rip: {:#x}", vm.reg_read("rip").unwrap());
-    println!("rax: {:#x}", vm.reg_read("rax").unwrap());
+    println!("rip: {:#x}", vm.reg_read("rip")?);
+    println!("rax: {:#x}", vm.reg_read("rax")?);
+
+    Ok(())
 }
 
-fn inv_start() {
-    let mut vm = Icicle::new(
+fn inv_start() -> PyResult<()> {
+    let mut vm: Icicle = Icicle::new(
         "x86_64".to_string(),
         false,
         true,
@@ -332,20 +66,22 @@ fn inv_start() {
         true,
         true,
         false,
-    ).unwrap();
+    )?;
     let page = 0x10000;
-    vm.mem_map(page, 0x1000, MemoryProtection::ExecuteRead).unwrap();
+    vm.mem_map(page, 0x1000, MemoryProtection::ExecuteRead)?;
     // <invalid>; ret
-    vm.mem_write(page, b"\xFF\xFF\xC3".to_vec()).unwrap();
-    vm.reg_write("rip", page).unwrap();
+    vm.mem_write(page, b"\xFF\xFF\xC3".to_vec())?;
+    vm.reg_write("rip", page)?;
     let status = vm.run();
     println!("status: {:?}", status);
-    println!("rip: {:#x}", vm.reg_read("rip").unwrap());
-    println!("rax: {:#x}", vm.reg_read("rax").unwrap());
+    println!("rip: {:#x}", vm.reg_read("rip")?);
+    println!("rax: {:#x}", vm.reg_read("rax")?);
+
+    Ok(())
 }
 
-fn inv_middle() {
-    let mut vm = Icicle::new(
+fn inv_middle() -> PyResult<()> {
+    let mut vm: Icicle = Icicle::new(
         "x86_64".to_string(),
         false,
         true,
@@ -355,19 +91,75 @@ fn inv_middle() {
         true,
         true,
         false,
-    ).unwrap();
+    )?;
     let page = 0x10000;
-    vm.mem_map(page, 0x1000, MemoryProtection::ExecuteRead).unwrap();
+    vm.mem_map(page, 0x1000, MemoryProtection::ExecuteRead)?;
     // inc eax; <invalid>; ret
-    vm.mem_write(page, b"\xFF\xC0\xFF\xFF\xC3".to_vec()).unwrap();
-    vm.reg_write("rip", page).unwrap();
+    vm.mem_write(page, b"\xFF\xC0\xFF\xFF\xC3".to_vec())?;
+    vm.reg_write("rip", page)?;
     let status = vm.run();
     println!("status: {:?}", status);
-    println!("rip: {:#x}", vm.reg_read("rip").unwrap());
-    println!("rax: {:#x}", vm.reg_read("rax").unwrap());
+    println!("rip: {:#x}", vm.reg_read("rip")?);
+    println!("rax: {:#x}", vm.reg_read("rax")?);
+
+    Ok(())
+}
+
+fn block_optimization() -> PyResult<()> {
+    let mut vm: Icicle = Icicle::new(
+        "x86_64".to_string(), // architecture
+        true,                 // jit
+        true,                 // jit_mem
+        true,                 // shadow_stack
+        true,                 // recompilation
+        false,                // track_uninitialized
+        true,                 // optimize_instructions
+        true,                 // optimize_block
+        false,                // tracing
+    )?;
+
+    // Memory setup
+    let addr: u64 = 0x140001A73;
+    let heap: u64 = 0x71000;
+    vm.mem_map(heap, 0x1000, MemoryProtection::ReadWrite)?;
+    vm.mem_write(heap + 4, b"\x37\x13\x00\x00".to_vec())?;
+    vm.mem_map(addr & !0xFFF, 0x1000, MemoryProtection::ExecuteRead)?;
+    vm.mem_write(addr, b"\x41\xc1\xea\x07\x41\x83\xe2\x1f\x74\x08\x44\x89\xd0\x48\x89\x54\xc6\x08\x49\x83\xc1\x04\x4c\x89\x0e\x4c\x89\xc9\x44\x8b\x11\x44\x89\xd0\xf7\xd0\x49\x89\xc9\xa8\x03\x0f\x84\x88\xf6\xff\xff\xeb\x4c".to_vec())?;
+
+    // Register setup
+    vm.reg_write("r9", heap)?;
+    vm.reg_write("r10", 0x13)?;
+    vm.reg_write("rip", addr)?;
+    vm.reg_write("rsi", heap + 0x100)?;
+
+    // Step through instructions
+    for i in 0..11 {
+        let rip = vm.reg_read("rip")?;
+        let rcx = vm.reg_read("rcx")?;
+        let r9 = vm.reg_read("r9")?;
+
+        println!("[{}] RIP: {:#x}, RCX: {:#x}, R9: {:#x}", i, rip, rcx, r9);
+
+        if rip == 0x140001A8F {
+            vm.reg_write("r9", 0x13370900)?;
+        }
+
+        vm.step(1);
+
+        if rip == 0x140001A9A {
+            if rcx != r9 {
+                println!("[BUG] expected rcx({:#x}) == r9({:#x})", rcx, r9);
+            } else {
+                println!("Everything works!");
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn main() {
+    #![allow(unused_must_use)]
     println!("=== NX (block start) ===");
     nx_start();
     println!("=== NX (block middle) ===");
@@ -376,4 +168,6 @@ fn main() {
     inv_start();
     println!("=== Invalid instruction (block middle) ===");
     inv_middle();
+    println!("=== Block optimization bug ===");
+    block_optimization();
 }

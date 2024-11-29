@@ -79,13 +79,16 @@ class Icicle:
     def __init__(self, architecture: str, *,
                  jit = True,
                  jit_mem = True,
-                 shadow_stack = True,
+                 shadow_stack = False,
                  recompilation = True,
                  track_uninitialized = False,
                  optimize_instructions = True,
-                 optimize_block = True,
+                 optimize_block = False,
                  tracing = False,
                  ) -> None: ...
+
+    @property
+    def architecture(self) -> str: ...
 
     @property
     def exception_code(self) -> ExceptionCode: ...
