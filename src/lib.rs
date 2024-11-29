@@ -14,7 +14,7 @@ use sleigh_runtime::NamedRegister;
 // - https://pyo3.rs/main/conversions/tables
 // - https://pyo3.rs/main/class
 
-#[pyclass(module = "icicle")]
+#[pyclass(eq, eq_int, module = "icicle")]
 #[derive(Clone, Debug, PartialEq)]
 pub enum MemoryProtection {
     NoAccess,
@@ -25,7 +25,7 @@ pub enum MemoryProtection {
     ExecuteReadWrite,
 }
 
-#[pyclass(module = "icicle")]
+#[pyclass(eq, eq_int, module = "icicle")]
 #[derive(Clone, Debug, PartialEq)]
 pub enum RunStatus {
     /// The VM is still running.
@@ -59,7 +59,7 @@ pub enum RunStatus {
     UnhandledException,
 }
 
-#[pyclass(module = "icicle")]
+#[pyclass(eq, eq_int, module = "icicle")]
 #[derive(Clone, Debug, PartialEq)]
 pub enum MemoryExceptionCode {
     Unallocated,
@@ -99,7 +99,7 @@ impl From<MemError> for MemoryExceptionCode {
     }
 }
 
-#[pyclass(module = "icicle", name = "ExceptionCode")]
+#[pyclass(eq, eq_int, module = "icicle", name = "ExceptionCode")]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExceptionCodePy {
     NoException = 0x0000,
@@ -200,11 +200,11 @@ impl From<ExceptionCode> for ExceptionCodePy {
 #[allow(non_snake_case)]
 fn raise_MemoryException(message: String, e: MemError) -> PyErr {
     Python::with_gil(|py| {
-        let icicle = py.import_bound("icicle").unwrap();
+        let icicle = py.import("icicle").unwrap();
         let exception = icicle.getattr("MemoryException").unwrap();
         let args = (message, MemoryExceptionCode::from(e));
         let inst = exception.call1(args).unwrap();
-        PyErr::from_value_bound(inst)
+        PyErr::from_value(inst)
     })
 }
 
