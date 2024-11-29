@@ -83,7 +83,7 @@ class Icicle:
                  recompilation = True,
                  track_uninitialized = False,
                  optimize_instructions = True,
-                 optimize_block = True,
+                 optimize_block = False,
                  tracing = False,
                  ) -> None: ...
 

@@ -285,7 +285,7 @@ impl Icicle {
         recompilation = true,
         track_uninitialized = false,
         optimize_instructions = true,
-        optimize_block = true,
+        optimize_block = false,
         tracing = false,
     ))]
     pub fn new(
