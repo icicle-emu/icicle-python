@@ -8,4 +8,4 @@ path = "tests.rs"
 
 [dependencies]
 icicle-python = { path = "..", default-features = false }
-pyo3 = { version = "*" }
+pyo3 = { workspace = true }

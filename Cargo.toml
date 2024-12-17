@@ -1,4 +1,6 @@
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = ["tests"]
+exclude = ["icicle-emu"]
 
 [package]
 name = "icicle-python"
@@ -9,13 +11,16 @@ edition = "2021"
 name = "icicle"
 crate-type = ["cdylib", "lib"]
 
+[workspace.dependencies]
+pyo3 = { version = "0.23.3", features = ["indexmap", "abi3-py37"] }
+
 [dependencies]
+pyo3 = { workspace = true }
 icicle-cpu = { path = "icicle-emu/icicle-cpu" }
 icicle-vm = { path = "icicle-emu/icicle-vm" }
 pcode = { path = "icicle-emu/sleigh/pcode" }
 sleigh-runtime = { path = "icicle-emu/sleigh/sleigh-runtime" }
 indexmap = "2.2.6"
-pyo3 = { version = "0.23.3", features = ["indexmap", "abi3-py37"] }
 target-lexicon = "0.12.7"
 tracing = "*"
 tracing-subscriber = "0.3.17"
