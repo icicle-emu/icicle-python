@@ -7,7 +7,7 @@ edition = "2021"
 
 [lib]
 name = "icicle"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "lib"]
 
 [dependencies]
 icicle-cpu = { path = "icicle-emu/icicle-cpu" }
@@ -15,10 +15,15 @@ icicle-vm = { path = "icicle-emu/icicle-vm" }
 pcode = { path = "icicle-emu/sleigh/pcode" }
 sleigh-runtime = { path = "icicle-emu/sleigh/sleigh-runtime" }
 indexmap = "2.2.6"
-pyo3 = { version = "0.23.2", features = ["extension-module", "indexmap", "abi3-py37"] }
+pyo3 = { version = "0.23.3", features = ["indexmap", "abi3-py37"] }
 target-lexicon = "0.12.7"
 tracing = "*"
 tracing-subscriber = "0.3.17"
 
 [build-dependencies]
-pyo3-build-config = "0.23.2"
+pyo3-build-config = "0.23.3"
+
+# Reference: https://github.com/PyO3/pyo3/issues/340
+[features]
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]

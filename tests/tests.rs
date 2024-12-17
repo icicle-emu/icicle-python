@@ -1,7 +1,4 @@
-#![allow(special_module_name)]
-mod lib;
-
-use lib::*;
+use icicle::*;
 use pyo3::PyResult;
 
 fn nx_start() -> PyResult<()> {
