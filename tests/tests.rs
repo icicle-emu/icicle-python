@@ -169,6 +169,43 @@ fn execute_only() -> PyResult<()> {
     Ok(())
 }
 
+fn step_modify_rip() -> PyResult<()> {
+    let mut vm = new_trace_vm(false)?;
+    vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteRead)?;
+
+    // 0x100:  48 01 d8                add    rax,rbx
+    // 0x103:  48 83 e9 05             sub    rcx,0x5
+    // 0x107:  48 89 d9                mov    rcx,rbx
+    // 0x10a:  90                      nop
+    // 0x10b:  90                      nop
+    vm.mem_write(0x100, b"\x48\x01\xD8\x48\x83\xE9\x05\x48\x89\xD9\x90\x90".to_vec())?;
+
+    vm.reg_write("rax", 0xF00)?;
+    vm.reg_write("rbx", 0x210)?;
+    vm.reg_write("rip", 0x100)?;
+
+    println!("starting run at {:#x}", vm.reg_read("rip")?);
+    let mut status = vm.step(1);
+
+    println!(
+        "ending run at {:#x} (status: {:?})",
+        vm.reg_read("rip")?,
+        status
+    );
+    vm.reg_write("rip", 0x100)?;
+    //vm.write_pc(0x100);
+    //println!("pc: {:#x}", vm.read_pc()); 
+    println!("rip rewritten {:#x}", vm.reg_read("rip")?);
+    status = vm.step(1);
+    println!(
+        "ending run at {:#x} (status: {:?})",
+        vm.reg_read("rip")?,
+        status
+    );
+
+    Ok(())
+}
+
 fn main() {
     // Make sure the GHIDRA_SRC environment variable is valid
     match std::env::var("GHIDRA_SRC") {
@@ -198,6 +235,7 @@ fn main() {
         ("Block optimization bug", block_optimization),
         ("Rewind", rewind),
         ("Execute only", execute_only),
+        ("Step modify rip", step_modify_rip),
     ];
 
     let mut success = 0;
