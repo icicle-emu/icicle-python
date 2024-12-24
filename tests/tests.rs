@@ -1,16 +1,22 @@
 use icicle::*;
 use pyo3::PyResult;
+use std::process::exit;
+
+#[test]
+fn example() -> PyResult<()> {
+    Err(pyo3::exceptions::PyException::new_err("test"))
+}
 
 fn nx_start() -> PyResult<()> {
     let mut vm: Icicle = Icicle::new(
         "x86_64".to_string(),
         false,
         true,
-        true,
+        false,
         true,
         false,
         true,
-        true,
+        false,
         false,
     )?;
     let page = 0x10000;
@@ -30,11 +36,11 @@ fn nx_middle() -> PyResult<()> {
         "x86_64".to_string(),
         false,
         true,
-        true,
+        false,
         true,
         false,
         true,
-        true,
+        false,
         false,
     )?;
     let page = 0x10000;
@@ -57,11 +63,11 @@ fn inv_start() -> PyResult<()> {
         "x86_64".to_string(),
         false,
         true,
-        true,
+        false,
         true,
         false,
         true,
-        true,
+        false,
         false,
     )?;
     let page = 0x10000;
@@ -82,11 +88,11 @@ fn inv_middle() -> PyResult<()> {
         "x86_64".to_string(),
         false,
         true,
-        true,
+        false,
         true,
         false,
         true,
-        true,
+        false,
         false,
     )?;
     let page = 0x10000;
@@ -104,15 +110,15 @@ fn inv_middle() -> PyResult<()> {
 
 fn block_optimization() -> PyResult<()> {
     let mut vm: Icicle = Icicle::new(
-        "x86_64".to_string(), // architecture
-        true,                 // jit
-        true,                 // jit_mem
-        true,                 // shadow_stack
-        true,                 // recompilation
-        false,                // track_uninitialized
-        true,                 // optimize_instructions
-        true,                 // optimize_block
-        false,                // tracing
+        "x86_64".to_string(),
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
     )?;
 
     // Memory setup
@@ -156,15 +162,48 @@ fn block_optimization() -> PyResult<()> {
 }
 
 fn main() {
-    #![allow(unused_must_use)]
-    println!("=== NX (block start) ===");
-    nx_start();
-    println!("=== NX (block middle) ===");
-    nx_middle();
-    println!("=== Invalid instruction (block start) ===");
-    inv_start();
-    println!("=== Invalid instruction (block middle) ===");
-    inv_middle();
-    println!("=== Block optimization bug ===");
-    block_optimization();
+    // Make sure the GHIDRA_SRC environment variable is valid
+    match std::env::var("GHIDRA_SRC") {
+        Ok(ghidra_src) => {
+            // Make sure the directory $GHIDRA_SRC/Ghidra/Processors exists
+            if !std::path::Path::new(&ghidra_src)
+                .join("Ghidra")
+                .join("Processors")
+                .exists()
+            {
+                println!("GHIDRA_SRC environment variable invalid!");
+                exit(1);
+            }
+            println!("GHIDRA_SRC: {}", ghidra_src);
+        }
+        Err(_) => {
+            println!("GHIDRA_SRC environment variable not set!");
+            exit(1);
+        }
+    }
+
+    let tests: Vec<(&str, fn() -> PyResult<()>)> = vec![
+        ("NX (block start)", nx_start),
+        ("NX (block middle)", nx_middle),
+        ("Invalid instruction (block start)", inv_start),
+        ("Invalid instruction (block middle)", inv_middle),
+        ("Block optimization bug", block_optimization),
+    ];
+
+    let mut success = 0;
+    for (name, f) in tests.iter() {
+        println!("=== {} ===", name);
+        match f() {
+            Ok(_) => {
+                success += 1;
+                println!("[OK]");
+            }
+            Err(e) => {
+                println!("[ERROR] {}", e);
+            }
+        }
+    }
+
+    println!("{}/{} tests passed", success, tests.len());
+    exit(if success == tests.len() { 0 } else { 1 });
 }
