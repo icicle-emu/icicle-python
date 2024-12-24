@@ -155,6 +155,20 @@ fn rewind() -> PyResult<()> {
     Ok(())
 }
 
+fn execute_only() -> PyResult<()> {
+    let mut vm = new_vm(true)?;
+
+    vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteOnly)?;
+    vm.mem_write(0x100, b"\x90".to_vec())?; // nop
+    vm.reg_write("rip", 0x100)?;
+    let status = vm.step(1);
+    println!("run status      : {:?}", status);
+    println!("exception code  : {:?}", vm.get_exception_code());
+    println!("exception value : {:#x}", vm.get_exception_value());
+
+    Ok(())
+}
+
 fn main() {
     // Make sure the GHIDRA_SRC environment variable is valid
     match std::env::var("GHIDRA_SRC") {
@@ -183,6 +197,7 @@ fn main() {
         ("Invalid instruction (block middle)", inv_middle),
         ("Block optimization bug", block_optimization),
         ("Rewind", rewind),
+        ("Execute only", execute_only),
     ];
 
     let mut success = 0;
