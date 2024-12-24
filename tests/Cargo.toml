@@ -1,0 +1,11 @@
+[package]
+name = "tests"
+edition = "2021"
+
+[[bin]]
+name = "tests"
+path = "tests.rs"
+
+[dependencies]
+icicle-python = { path = "..", default-features = false }
+pyo3 = { workspace = true, features = ["auto-initialize"] }

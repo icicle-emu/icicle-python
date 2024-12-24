@@ -1,0 +1,2 @@
+[env]
+GHIDRA_SRC = { value = "../python/icicle", relative = true }
