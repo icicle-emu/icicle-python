@@ -2,15 +2,16 @@ use icicle::*;
 use pyo3::PyResult;
 use std::process::exit;
 
+// NOTE: https://github.com/rust-lang/rust-analyzer/issues/18752
 #[test]
 fn example() -> PyResult<()> {
     Err(pyo3::exceptions::PyException::new_err("test"))
 }
 
-fn nx_start() -> PyResult<()> {
-    let mut vm: Icicle = Icicle::new(
+fn new_vm(jit: bool) -> PyResult<Icicle> {
+    Icicle::new(
         "x86_64".to_string(),
-        false,
+        jit,
         true,
         false,
         true,
@@ -18,7 +19,11 @@ fn nx_start() -> PyResult<()> {
         true,
         false,
         false,
-    )?;
+    )
+}
+
+fn nx_start() -> PyResult<()> {
+    let mut vm = new_vm(false)?;
     let page = 0x10000;
     vm.mem_map(page, 0x1000, MemoryProtection::ReadOnly)?;
     // <non-executable memory> inc eax; ret
@@ -32,17 +37,7 @@ fn nx_start() -> PyResult<()> {
 }
 
 fn nx_middle() -> PyResult<()> {
-    let mut vm: Icicle = Icicle::new(
-        "x86_64".to_string(),
-        false,
-        true,
-        false,
-        true,
-        false,
-        true,
-        false,
-        false,
-    )?;
+    let mut vm = new_vm(false)?;
     let page = 0x10000;
     vm.mem_map(page, 0x2000, MemoryProtection::ExecuteRead)?;
     vm.mem_protect(page + 0x1000, 0x1000, MemoryProtection::ReadOnly)?;
@@ -59,17 +54,7 @@ fn nx_middle() -> PyResult<()> {
 }
 
 fn inv_start() -> PyResult<()> {
-    let mut vm: Icicle = Icicle::new(
-        "x86_64".to_string(),
-        false,
-        true,
-        false,
-        true,
-        false,
-        true,
-        false,
-        false,
-    )?;
+    let mut vm = new_vm(false)?;
     let page = 0x10000;
     vm.mem_map(page, 0x1000, MemoryProtection::ExecuteRead)?;
     // <invalid>; ret
@@ -84,17 +69,7 @@ fn inv_start() -> PyResult<()> {
 }
 
 fn inv_middle() -> PyResult<()> {
-    let mut vm: Icicle = Icicle::new(
-        "x86_64".to_string(),
-        false,
-        true,
-        false,
-        true,
-        false,
-        true,
-        false,
-        false,
-    )?;
+    let mut vm = new_vm(false)?;
     let page = 0x10000;
     vm.mem_map(page, 0x1000, MemoryProtection::ExecuteRead)?;
     // inc eax; <invalid>; ret
@@ -162,30 +137,20 @@ fn block_optimization() -> PyResult<()> {
 }
 
 fn rewind() -> PyResult<()> {
-    let mut ic: Icicle = Icicle::new(
-        "x86_64".to_string(),
-        true,
-        true,
-        false,
-        true,
-        false,
-        true,
-        false,
-        false,
-    )?;
+    let mut vm = new_vm(true)?;
 
-    ic.mem_map(0x100, 0x20, MemoryProtection::ExecuteRead)?;
-    ic.mem_map(0x200, 0x20, MemoryProtection::ReadOnly)?;
+    vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteRead)?;
+    vm.mem_map(0x200, 0x20, MemoryProtection::ReadOnly)?;
 
-    ic.mem_write(0x100, b"\x55".to_vec())?; // push rbp
-    ic.reg_write("rbp", 0xF00)?;
-    ic.reg_write("rsp", 0x210)?;
-    ic.reg_write("rip", 0x100)?;
-    let status = ic.step(1);
+    vm.mem_write(0x100, b"\x55".to_vec())?; // push rbp
+    vm.reg_write("rbp", 0xF00)?;
+    vm.reg_write("rsp", 0x210)?;
+    vm.reg_write("rip", 0x100)?;
+    let status = vm.step(1);
     println!("run status      : {:?}", status);
-    println!("exception code  : {:?}", ic.get_exception_code());
-    println!("exception value : {:#x}", ic.get_exception_value());
-    println!("stack pointer   : {:#x}", ic.reg_read("rsp")?);
+    println!("exception code  : {:?}", vm.get_exception_code());
+    println!("exception value : {:#x}", vm.get_exception_value());
+    println!("stack pointer   : {:#x}", vm.reg_read("rsp")?);
 
     Ok(())
 }
