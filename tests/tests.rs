@@ -161,6 +161,35 @@ fn block_optimization() -> PyResult<()> {
     Ok(())
 }
 
+fn rewind() -> PyResult<()> {
+    let mut ic: Icicle = Icicle::new(
+        "x86_64".to_string(),
+        true,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+    )?;
+
+    ic.mem_map(0x100, 0x20, MemoryProtection::ExecuteRead)?;
+    ic.mem_map(0x200, 0x20, MemoryProtection::ReadOnly)?;
+
+    ic.mem_write(0x100, b"\x55".to_vec())?; // push rbp
+    ic.reg_write("rbp", 0xF00)?;
+    ic.reg_write("rsp", 0x210)?;
+    ic.reg_write("rip", 0x100)?;
+    let status = ic.step(1);
+    println!("run status      : {:?}", status);
+    println!("exception code  : {:?}", ic.get_exception_code());
+    println!("exception value : {:#x}", ic.get_exception_value());
+    println!("stack pointer   : {:#x}", ic.reg_read("rsp")?);
+
+    Ok(())
+}
+
 fn main() {
     // Make sure the GHIDRA_SRC environment variable is valid
     match std::env::var("GHIDRA_SRC") {
@@ -188,6 +217,7 @@ fn main() {
         ("Invalid instruction (block start)", inv_start),
         ("Invalid instruction (block middle)", inv_middle),
         ("Block optimization bug", block_optimization),
+        ("Rewind", rewind),
     ];
 
     let mut success = 0;
