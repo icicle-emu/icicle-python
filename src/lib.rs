@@ -455,7 +455,13 @@ impl Icicle {
     }
 
     pub fn reg_write(&mut self, name: &str, value: u64) -> PyResult<()> {
-        Ok(self.vm.cpu.write_reg(reg_find(self, name)?.var, value))
+        let var = reg_find(self, name)?.var;
+        if var == self.vm.cpu.arch.reg_pc {
+            self.vm.cpu.write_pc(value);
+        } else {
+            self.vm.cpu.write_reg(var, value);
+        }
+        Ok(())
     }
 
     pub fn reset(&mut self) {
