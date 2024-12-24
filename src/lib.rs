@@ -276,6 +276,26 @@ impl Icicle {
         self.architecture.to_string()
     }
 
+    #[getter]
+    pub fn get_pc(&self) -> u64 {
+        self.vm.cpu.read_pc()
+    }
+
+    #[setter]
+    pub fn set_pc(&mut self, address: u64) {
+        self.vm.cpu.write_pc(address)
+    }
+
+    #[getter]
+    pub fn get_sp(&mut self) -> u64 {
+        self.vm.cpu.read_reg(self.vm.cpu.arch.reg_sp)
+    }
+
+    #[setter]
+    pub fn set_sp(&mut self, address: u64) {
+        self.vm.cpu.write_reg(self.vm.cpu.arch.reg_sp, address)
+    }
+
     #[new]
     #[pyo3(signature = (
         architecture,
@@ -455,7 +475,13 @@ impl Icicle {
     }
 
     pub fn reg_write(&mut self, name: &str, value: u64) -> PyResult<()> {
-        Ok(self.vm.cpu.write_reg(reg_find(self, name)?.var, value))
+        let var = reg_find(self, name)?.var;
+        if var == self.vm.cpu.arch.reg_pc {
+            self.vm.cpu.write_pc(value);
+        } else {
+            self.vm.cpu.write_reg(var, value);
+        }
+        Ok(())
     }
 
     pub fn reset(&mut self) {

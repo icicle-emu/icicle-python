@@ -100,6 +100,10 @@ class Icicle:
 
     icount_limit: int
 
+    pc: int
+
+    sp: int
+
     # TODO: API to get memory information?
 
     def mem_map(self, address: int, size: int, protection: MemoryProtection): ...
