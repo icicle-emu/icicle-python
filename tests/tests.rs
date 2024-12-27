@@ -206,6 +206,55 @@ fn step_modify_rip() -> PyResult<()> {
     Ok(())
 }
 
+fn eflags_reconstruction() -> PyResult<()> {
+    let mut vm = new_vm(false)?;
+    vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteRead)?;
+
+    vm.mem_write(0x100, b"\x48\x01\xD8".to_vec())?;
+    vm.reg_write("rax", 0x7FFFFFFFFFFFFFFF)?;
+    vm.reg_write("rbx", 0x1)?;
+
+    let of_mask = (1 << 11) as u64;
+
+    {
+        let eflags = vm.reg_read("eflags")?;
+        let of = vm.reg_read("OF")?;
+        let of_set = (eflags & of_mask) == of_mask;
+        println!("[pre] eflags: {:#x}, OF: {:#x} == {}", eflags, of, of_set);
+    }
+
+    vm.set_pc(0x100);
+    let status = vm.step(1);
+    println!("run status: {:?}", status);
+
+    {
+        let eflags = vm.reg_read("eflags")?;
+        let rflags = vm.reg_read("rflags")?;
+        let of = vm.reg_read("OF")?;
+        let of_set = (eflags & of_mask) == of_mask;
+        println!("[post] eflags: {:#x} == {:#x}, OF: {:#x} == {}", eflags, rflags, of, of_set);
+    }
+
+    {
+        vm.reg_write("OF", 0)?;
+        let eflags = vm.reg_read("eflags")?;
+        let of = vm.reg_read("OF")?;
+        let of_set = (eflags >> 11) & 1;
+        println!("[OF=0] eflags: {:#x}, OF: {:#x} == {}", eflags, of, of_set);
+    }
+
+    {
+        let mut eflags = vm.reg_read("eflags")?;
+        eflags |= of_mask;
+        vm.reg_write("rflags", eflags)?;
+        let of = vm.reg_read("OF")?;
+        let of_set = (eflags >> 11) & 1;
+        println!("[rflags|={:#x}] eflags: {:#x}, OF: {:#x} == {}", of_mask, eflags, of, of_set);
+    }
+
+    Ok(())
+}
+
 fn main() {
     // Make sure the GHIDRA_SRC environment variable is valid
     match std::env::var("GHIDRA_SRC") {
@@ -236,6 +285,7 @@ fn main() {
         ("Rewind", rewind),
         ("Execute only", execute_only),
         ("Step modify rip", step_modify_rip),
+        ("EFlags reconstruction", eflags_reconstruction),
     ];
 
     let mut success = 0;
