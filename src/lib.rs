@@ -1,18 +1,35 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use icicle_cpu::mem::{Mapping, MemError, perm};
-use icicle_cpu::{ExceptionCode, VmExit};
+use icicle_cpu::{Cpu, ExceptionCode, ValueSource, VarSource, VmExit};
 use pyo3::prelude::*;
 use icicle_vm;
-use icicle_vm::linux::LinuxCpu;
 use pyo3::exceptions::*;
 use target_lexicon;
 use indexmap::IndexMap;
+use target_lexicon::Architecture;
+use icicle_cpu::lifter::InstructionSource;
 use sleigh_runtime::NamedRegister;
 
 // References:
 // - https://pyo3.rs/main/conversions/tables
 // - https://pyo3.rs/main/class
+
+struct X86FlagsRegHandler {
+    pub eflags: pcode::VarNode,
+}
+
+impl icicle_cpu::RegHandler for X86FlagsRegHandler {
+    fn read(&mut self, cpu: &mut Cpu) {
+        let eflags = icicle_vm::x86::eflags(cpu);
+        cpu.write_var::<u32>(self.eflags, eflags);
+    }
+
+    fn write(&mut self, cpu: &mut Cpu) {
+        let eflags = cpu.read_var::<u32>(self.eflags);
+        icicle_vm::x86::set_eflags(cpu, eflags);
+    }
+}
 
 #[pyclass(eq, eq_int, module = "icicle")]
 #[derive(Clone, Debug, PartialEq)]
@@ -227,7 +244,7 @@ pub struct Icicle {
 }
 
 fn reg_find<'a>(i: &'a Icicle, name: &str) -> PyResult<&'a NamedRegister> {
-    let sleigh = i.vm.cpu.sleigh();
+    let sleigh = &i.vm.cpu.arch.sleigh;
     match sleigh.get_reg(name) {
         None => {
             i.regs.get(name.to_lowercase().as_str())
@@ -354,17 +371,27 @@ impl Icicle {
         config.optimize_instructions = optimize_instructions;
         config.optimize_block = optimize_block;
 
-        let vm = icicle_vm::build(&config)
+        let mut vm = icicle_vm::build(&config)
             .map_err(|e| {
                 PyException::new_err(format!("VM build error: {e}"))
             })?;
 
         // Populate the lowercase register map
         let mut regs = HashMap::new();
-        let sleigh = vm.cpu.sleigh();
+        let sleigh = &vm.cpu.arch.sleigh;
         for reg in &sleigh.named_registers {
             let name = sleigh.get_str(reg.name);
             regs.insert(name.to_lowercase(), reg.clone());
+        }
+
+        // Special handling for x86 flags
+        match config.triple.architecture {
+            Architecture::X86_32(_) | Architecture::X86_64 | Architecture::X86_64h => {
+                let eflags = sleigh.get_reg("eflags").unwrap().var;
+                let reg_handler = X86FlagsRegHandler { eflags };
+                vm.cpu.add_reg_handler(eflags.id, Box::new(reg_handler));
+            }
+            _ => {}
         }
 
         Ok(Icicle {
@@ -454,7 +481,7 @@ impl Icicle {
 
     pub fn reg_list(&self) -> PyResult<IndexMap<String, (u32, u8)>> {
         let mut result = IndexMap::new();
-        let sleigh = self.vm.cpu.sleigh();
+        let sleigh = &self.vm.cpu.arch.sleigh;
         for reg in &sleigh.named_registers {
             let name = sleigh.get_str(reg.name);
             result.insert(name.to_string(), (reg.offset, reg.var.size));
