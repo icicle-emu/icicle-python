@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use icicle::*;
 use pyo3::PyResult;
 use std::process::exit;
@@ -19,6 +21,20 @@ fn new_vm(jit: bool) -> PyResult<Icicle> {
         true,
         false,
         false,
+    )
+}
+
+fn new_trace_vm(jit: bool) -> PyResult<Icicle> {
+    Icicle::new(
+        "x86_64".to_string(),
+        jit,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
     )
 }
 
@@ -102,7 +118,7 @@ fn block_optimization() -> PyResult<()> {
     vm.mem_map(heap, 0x1000, MemoryProtection::ReadWrite)?;
     vm.mem_write(heap + 4, b"\x37\x13\x00\x00".to_vec())?;
     vm.mem_map(addr & !0xFFF, 0x1000, MemoryProtection::ExecuteRead)?;
-    vm.mem_write(addr, b"\x41\xc1\xea\x07\x41\x83\xe2\x1f\x74\x08\x44\x89\xd0\x48\x89\x54\xc6\x08\x49\x83\xc1\x04\x4c\x89\x0e\x4c\x89\xc9\x44\x8b\x11\x44\x89\xd0\xf7\xd0\x49\x89\xc9\xa8\x03\x0f\x84\x88\xf6\xff\xff\xeb\x4c".to_vec())?;
+    vm.mem_write(addr, b"\x41\xc1\xea\x07\x41\x83\xe2\x1f\x74\x08\x44\x89\xd0\x48\x89\x54\xc6\x08\x49\x83\xc1\x04\x4c\x89\x0e\x4c\x89\xc9\x44\x8b\x11\x44\x89\xd0\xf7\xd0\x49\x89\xc9\xa8\x03\x0f\x84\x88\xf6\xff\xff\xeb\x4c\xcc".to_vec())?;
 
     // Register setup
     vm.reg_write("r9", heap)?;
@@ -142,7 +158,7 @@ fn rewind() -> PyResult<()> {
     vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteRead)?;
     vm.mem_map(0x200, 0x20, MemoryProtection::ReadOnly)?;
 
-    vm.mem_write(0x100, b"\x55".to_vec())?; // push rbp
+    vm.mem_write(0x100, b"\x55\xCC".to_vec())?; // push rbp
     vm.reg_write("rbp", 0xF00)?;
     vm.reg_write("rsp", 0x210)?;
     vm.reg_write("rip", 0x100)?;
@@ -222,7 +238,10 @@ fn step_modify_rip() -> PyResult<()> {
     // 0x107:  48 89 d9                mov    rcx,rbx
     // 0x10a:  90                      nop
     // 0x10b:  90                      nop
-    vm.mem_write(0x100, b"\x48\x01\xD8\x48\x83\xE9\x05\x48\x89\xD9\x90\x90".to_vec())?;
+    vm.mem_write(
+        0x100,
+        b"\x48\x01\xD8\x48\x83\xE9\x05\x48\x89\xD9\x90\x90\xCC".to_vec(),
+    )?;
 
     vm.reg_write("rax", 0xF00)?;
     vm.reg_write("rbx", 0x210)?;
@@ -238,7 +257,7 @@ fn step_modify_rip() -> PyResult<()> {
     );
     vm.reg_write("rip", 0x100)?;
     //vm.write_pc(0x100);
-    //println!("pc: {:#x}", vm.read_pc()); 
+    //println!("pc: {:#x}", vm.read_pc());
     println!("rip rewritten {:#x}", vm.reg_read("rip")?);
     status = vm.step(1);
     println!(
@@ -254,7 +273,7 @@ fn eflags_reconstruction() -> PyResult<()> {
     let mut vm = new_vm(false)?;
     vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteRead)?;
 
-    vm.mem_write(0x100, b"\x48\x01\xD8".to_vec())?;
+    vm.mem_write(0x100, b"\x48\x01\xD8\xCC".to_vec())?;
     vm.reg_write("rax", 0x7FFFFFFFFFFFFFFF)?;
     vm.reg_write("rbx", 0x1)?;
 
@@ -276,7 +295,10 @@ fn eflags_reconstruction() -> PyResult<()> {
         let rflags = vm.reg_read("rflags")?;
         let of = vm.reg_read("OF")?;
         let of_set = (eflags & of_mask) == of_mask;
-        println!("[post] eflags: {:#x} == {:#x}, OF: {:#x} == {}", eflags, rflags, of, of_set);
+        println!(
+            "[post] eflags: {:#x} == {:#x}, OF: {:#x} == {}",
+            eflags, rflags, of, of_set
+        );
     }
 
     {
@@ -293,7 +315,10 @@ fn eflags_reconstruction() -> PyResult<()> {
         vm.reg_write("rflags", eflags)?;
         let of = vm.reg_read("OF")?;
         let of_set = (eflags >> 11) & 1;
-        println!("[rflags|={:#x}] eflags: {:#x}, OF: {:#x} == {}", of_mask, eflags, of, of_set);
+        println!(
+            "[rflags|={:#x}] eflags: {:#x}, OF: {:#x} == {}",
+            of_mask, eflags, of, of_set
+        );
     }
 
     Ok(())
