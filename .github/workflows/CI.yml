@@ -141,6 +141,7 @@ jobs:
     permissions:
       contents: write
       discussions: write
+      id-token: write
     steps:
       - name: Download wheels
         uses: actions/download-artifact@v4
@@ -151,9 +152,6 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70 # v1.12.13
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          packages-dir: dist/
 
       - name: Release
         uses: softprops/action-gh-release@e7a8f85e1c67a31e6ed99a94b41bd0b71bbee6b8 # v2.0.9
