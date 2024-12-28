@@ -1145,78 +1145,78 @@ macro ptr8(r,x) {
 
 macro push22(x) {
   mysave:2 = x;
-  SP = SP -2;
-  tmp:$(SIZE) = segment(SS,SP);
+  tmp:$(SIZE) = segment(SS,SP-2);
   *:2 tmp = mysave;
+  SP = SP-2;
 }
 
 macro push24(x) {
   mysave:4 = x;
-  SP = SP-4;
-  tmp:$(SIZE) = segment(SS,SP);
+  tmp:$(SIZE) = segment(SS,SP-4);
   *:4 tmp = mysave;
+  SP = SP-4;
 }
 
 macro push28(x) {
   mysave:8 = x;
-  SP = SP-8;
-  tmp:$(SIZE) = segment(SS,SP);
+  tmp:$(SIZE) = segment(SS,SP-8);
   *:8 tmp = mysave;
+  SP = SP-8;
 }
 
 macro push42(x) {
   mysave:2 = x;
-  $(STACKPTR) = $(STACKPTR) - 2;
-  *:2 $(STACKPTR) = mysave;
+  *:2 ($(STACKPTR)-2) = mysave;
+  $(STACKPTR) = $(STACKPTR)-2;
 }
 
 macro push44(x) {
   mysave:4 = x;
-  $(STACKPTR) = $(STACKPTR) - 4;
-  *:4 $(STACKPTR) = mysave;
+  *:4 ($(STACKPTR)-4) = mysave;
+  $(STACKPTR) = $(STACKPTR)-4;
 }
 
 macro pushseg44(x) {
   mysave:2 = x;
-  $(STACKPTR) = $(STACKPTR) - 4;
-  *:2 $(STACKPTR) = mysave;
+  *:2 ($(STACKPTR)-4) = mysave;
+  $(STACKPTR) = $(STACKPTR)-4;
 }
 
 macro push48(x) {
   mysave:8 = x;
-  $(STACKPTR) = $(STACKPTR) - 8;
-  *:8 $(STACKPTR) = mysave;
+  *:8 ($(STACKPTR)-8) = mysave;
+  $(STACKPTR) = $(STACKPTR)-8;
 }
 
 @ifdef IA64
 macro push82(x) {
   mysave:2 = x;
-  $(STACKPTR) = $(STACKPTR) - 2;
-  *:2 $(STACKPTR) = mysave;
+  *:2 ($(STACKPTR)-2) = mysave;
+  $(STACKPTR) = $(STACKPTR)-2;
 }
 
 macro push84(x) {
   mysave:4 = x;
-  $(STACKPTR) = $(STACKPTR) - 4;
-  *:4 $(STACKPTR) = mysave;
+  *:4 ($(STACKPTR)-4) = mysave;
+  $(STACKPTR) = $(STACKPTR)-4;
 }
 
 macro push88(x) {
   mysave:8 = x;
-  $(STACKPTR) = $(STACKPTR) - 8;
-  *:8 $(STACKPTR) = mysave;
+  *:8 ($(STACKPTR)-8) = mysave;
+  $(STACKPTR) = $(STACKPTR)-8;
 }
 
 macro pushseg82(x) {
   mysave:2 = x;
-  $(STACKPTR) = $(STACKPTR) - 2;
-  *:2 $(STACKPTR) = mysave;
+  *:2 ($(STACKPTR)-2) = mysave;
+  $(STACKPTR) = $(STACKPTR)-2;
 }
 
 macro pushseg88(x) {
   mysave:2 = x;
-  $(STACKPTR) = $(STACKPTR) - 8;
-  *:2 $(STACKPTR) = mysave;
+  *:2 ($(STACKPTR)-8) = mysave;
+  $(STACKPTR) = $(STACKPTR)-8;
 }
 @endif
 
