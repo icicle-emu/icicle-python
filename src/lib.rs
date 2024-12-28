@@ -1,14 +1,13 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use icicle_cpu::mem::{Mapping, MemError, perm};
-use icicle_cpu::{Cpu, ExceptionCode, ValueSource, VarSource, VmExit};
+use icicle_cpu::{Cpu, ExceptionCode, ValueSource, VmExit};
 use pyo3::prelude::*;
 use icicle_vm;
 use pyo3::exceptions::*;
 use target_lexicon;
 use indexmap::IndexMap;
 use target_lexicon::Architecture;
-use icicle_cpu::lifter::InstructionSource;
 use sleigh_runtime::NamedRegister;
 
 // References:
@@ -412,8 +411,9 @@ impl Icicle {
     }
 
     pub fn mem_map(&mut self, address: u64, size: u64, protection: MemoryProtection) -> PyResult<()> {
+        let init_perm = if self.vm.cpu.mem.track_uninitialized { perm::NONE } else { perm::INIT };
         let mapping = Mapping {
-            perm: convert_protection(protection),
+            perm: convert_protection(protection) | init_perm,
             value: 0,
         };
         if self.vm.cpu.mem.map_memory_len(address, size, mapping) {
