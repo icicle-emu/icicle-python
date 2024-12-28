@@ -155,6 +155,37 @@ fn rewind() -> PyResult<()> {
     Ok(())
 }
 
+fn execute_uninitialized() -> PyResult<()> {
+    let mut vm = Icicle::new(
+        "x86_64".to_string(),
+        false,
+        true,
+        false,
+        true,
+        true, // NOTE: setting this to true is not properly supported
+        true,
+        false,
+        true,
+    )?;
+
+    // \x48\x8d\x05\x01\x00\x00\x00\x90\x8a\x18\x90
+
+    vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteOnly)?;
+    vm.mem_write(0x100, b"\xFF\xC0".to_vec())?; // inc eax
+    vm.reg_write("rip", 0x100)?;
+    let status = vm.step(1);
+    // NOTE: the real reason is that INIT is not set
+    println!("run status      : {:?}", status);
+    println!("exception code  : {:?}", vm.get_exception_code());
+    println!("exception value : {:#x}", vm.get_exception_value());
+    println!("rax             : {:#x}", vm.reg_read("rax")?);
+
+    // TODO: status is now UnhandledException, should be InstructionLimit
+    // on the next stpe it should be UnhandledException -> ExecViolation
+
+    Ok(())
+}
+
 fn execute_only() -> PyResult<()> {
     let mut vm = new_vm(false)?;
 
@@ -297,6 +328,7 @@ fn main() {
         ("Block optimization bug", block_optimization),
         ("Rewind", rewind),
         ("Execute only", execute_only),
+        ("Execute uninitialized", execute_uninitialized),
         ("Step modify rip", step_modify_rip),
         ("EFlags reconstruction", eflags_reconstruction),
     ];
