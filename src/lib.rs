@@ -270,7 +270,7 @@ impl Icicle {
 
     #[getter]
     pub fn get_icount(&mut self) -> u64 {
-        return self.vm.cpu.icount;
+        self.vm.cpu.icount
     }
 
     #[setter]
@@ -352,7 +352,7 @@ impl Icicle {
             }
         }
 
-        // Setup the CPU state for the target triple
+        // Set up the CPU state for the target triple
         let mut config = icicle_vm::cpu::Config::from_target_triple(
             format!("{architecture}-none").as_str()
         );
@@ -465,7 +465,7 @@ impl Icicle {
                     e,
                 )
             })?;
-        return Ok(Cow::Owned(buffer));
+        Ok(Cow::Owned(buffer))
     }
 
     pub fn mem_write(&mut self, address: u64, data: Vec<u8>) -> PyResult<()> {
@@ -486,7 +486,7 @@ impl Icicle {
             let name = sleigh.get_str(reg.name);
             result.insert(name.to_string(), (reg.offset, reg.var.size));
         }
-        return Ok(result);
+        Ok(result)
     }
 
     pub fn reg_offset(&self, name: &str) -> PyResult<u32> {
