@@ -156,15 +156,28 @@ fn rewind() -> PyResult<()> {
 }
 
 fn execute_only() -> PyResult<()> {
-    let mut vm = new_vm(true)?;
+    let mut vm = new_vm(false)?;
 
     vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteOnly)?;
-    vm.mem_write(0x100, b"\x90".to_vec())?; // nop
+    /*
+    0x100: lea rax, [rip]
+    0x107: nop
+    0x108: mov bl, byte ptr [rax]
+    0x10A: int3
+    */
+    vm.mem_write(
+        0x100,
+        b"\x48\x8d\x05\x00\x00\x00\x00\x90\x8a\x18\xCC".to_vec(),
+    )?; // nop
     vm.reg_write("rip", 0x100)?;
+    vm.step(2);
     let status = vm.step(1);
+    // NOTE: the real reason is that INIT is not set
     println!("run status      : {:?}", status);
     println!("exception code  : {:?}", vm.get_exception_code());
     println!("exception value : {:#x}", vm.get_exception_value());
+    println!("bl: {:#x}", vm.reg_read("bl")?);
+    println!("rip: {:#x}", vm.reg_read("rip")?);
 
     Ok(())
 }
