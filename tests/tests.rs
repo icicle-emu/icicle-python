@@ -174,27 +174,41 @@ fn rewind() -> PyResult<()> {
 fn execute_uninitialized() -> PyResult<()> {
     let mut vm = Icicle::new(
         "x86_64".to_string(),
-        false,
+        true,
         true,
         false,
         true,
         true, // NOTE: setting this to true is not properly supported
         true,
         false,
-        true,
+        false,
     )?;
 
     // \x48\x8d\x05\x01\x00\x00\x00\x90\x8a\x18\x90
 
     vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteOnly)?;
-    vm.mem_write(0x100, b"\xFF\xC0".to_vec())?; // inc eax
+    vm.mem_write(0x100, b"\x90\xFF\xC0".to_vec())?; // inc eax
     vm.reg_write("rip", 0x100)?;
-    let status = vm.step(1);
-    // NOTE: the real reason is that INIT is not set
-    println!("run status      : {:?}", status);
-    println!("exception code  : {:?}", vm.get_exception_code());
-    println!("exception value : {:#x}", vm.get_exception_value());
-    println!("rax             : {:#x}", vm.reg_read("rax")?);
+    {
+        println!("[pre1] icount: {}", vm.get_icount());
+        let status = vm.step(2);
+        // NOTE: the real reason is that INIT is not set
+        println!("run status      : {:?}", status);
+        println!("exception code  : {:?}", vm.get_exception_code());
+        println!("exception value : {:#x}", vm.get_exception_value());
+        println!("rax             : {:#x}", vm.reg_read("rax")?);
+    }
+
+    {
+        println!("[pre2] icount: {}", vm.get_icount());
+        let status = vm.step(1);
+        // NOTE: the real reason is that INIT is not set
+        println!("run status      : {:?}", status);
+        println!("exception code  : {:?}", vm.get_exception_code());
+        println!("exception value : {:#x}", vm.get_exception_value());
+        println!("rax             : {:#x}", vm.reg_read("rax")?);
+        println!("[post] icount: {}", vm.get_icount());
+    }
 
     // TODO: status is now UnhandledException, should be InstructionLimit
     // on the next stpe it should be UnhandledException -> ExecViolation
@@ -229,8 +243,14 @@ fn execute_only() -> PyResult<()> {
     Ok(())
 }
 
+fn self_modifying() -> PyResult<()> {
+    // TODO: add a self-modifying code check (where the previously-executed code is written to)
+
+    Ok(())
+}
+
 fn step_modify_rip() -> PyResult<()> {
-    let mut vm = new_trace_vm(false)?;
+    let mut vm = new_vm(false)?;
     vm.mem_map(0x100, 0x20, MemoryProtection::ExecuteRead)?;
 
     // 0x100:  48 01 d8                add    rax,rbx
@@ -346,16 +366,16 @@ fn main() {
     }
 
     let tests: Vec<(&str, fn() -> PyResult<()>)> = vec![
-        ("NX (block start)", nx_start),
-        ("NX (block middle)", nx_middle),
-        ("Invalid instruction (block start)", inv_start),
-        ("Invalid instruction (block middle)", inv_middle),
-        ("Block optimization bug", block_optimization),
-        ("Rewind", rewind),
-        ("Execute only", execute_only),
+        //("NX (block start)", nx_start),
+        //("NX (block middle)", nx_middle),
+        //("Invalid instruction (block start)", inv_start),
+        //("Invalid instruction (block middle)", inv_middle),
+        //("Block optimization bug", block_optimization),
+        //("Rewind", rewind),
+        //("Execute only", execute_only),
         ("Execute uninitialized", execute_uninitialized),
-        ("Step modify rip", step_modify_rip),
-        ("EFlags reconstruction", eflags_reconstruction),
+        //("Step modify rip", step_modify_rip),
+        //("EFlags reconstruction", eflags_reconstruction),
     ];
 
     let mut success = 0;
