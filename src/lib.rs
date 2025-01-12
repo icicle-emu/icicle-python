@@ -312,6 +312,24 @@ impl Icicle {
         self.vm.cpu.write_reg(self.vm.cpu.arch.reg_sp, address)
     }
 
+    #[getter]
+    pub fn get_mem_capacity(&self) -> usize {
+        self.vm.cpu.mem.capacity()
+    }
+
+    #[setter]
+    pub fn set_mem_capacity(&mut self, capacity: usize) -> PyResult<()> {
+        if self.vm.cpu.mem.set_capacity(capacity) {
+            return Ok(());
+        }
+        Err(
+            raise_MemoryException(
+                format!("Reducing memory capacity is not supported"),
+                MemError::Unknown,
+            )
+        )
+    }
+
     #[new]
     #[pyo3(signature = (
         architecture,
