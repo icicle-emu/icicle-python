@@ -104,6 +104,12 @@ class Icicle:
 
     sp: int
 
+    """
+    Physical memory capacity in pages (adjust when seeing OutOfMemory)
+    The default limit is set so that the maximum corresponds to ~400 MB of host memory.
+    """
+    mem_capacity: int
+
     # TODO: API to get memory information?
 
     def mem_map(self, address: int, size: int, protection: MemoryProtection): ...
@@ -146,7 +152,7 @@ class MemoryException(Exception):
         self.code = code
 
     def __str__(self):
-        return f"{super().__str__()}: {self.code}"
+        return f"{super().__str__()} ({self.code})"
 
 def __ghidra_init():
     import os
