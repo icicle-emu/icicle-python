@@ -7,7 +7,7 @@ This project is an easy to use Python wrapper around [icicle-emu](https://github
 You can install the [latest release](https://github.com/icicle-emu/icicle-python/releases) from [PyPI](https://pypi.org/project/icicle-emu):
 
 ```
-pip -m install icicle-emu
+pip install icicle-emu
 ```
 
 ## Development
