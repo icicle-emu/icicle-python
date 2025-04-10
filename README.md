@@ -12,7 +12,7 @@ pip install icicle-emu
 
 ## Development
 
-_Note_: You need to install [Rust 1.48](https://rustup.rs) or later to build from source.
+_Note_: You need to install [Rust 1.85](https://rustup.rs) or later to build from source.
 
 Set up a virtual environment:
 
