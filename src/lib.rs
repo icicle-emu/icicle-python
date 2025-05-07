@@ -293,6 +293,22 @@ impl Icicle {
     }
 
     #[getter]
+    pub fn get_isa_mode(&self) -> u8 {
+        self.vm
+            .cpu
+            .arch
+            .reg_isa_mode
+            .map(|reg| self.vm.cpu.read_var(reg))
+            .unwrap_or(0)
+    }
+
+    #[setter]
+    pub fn set_isa_mode(&mut self, mode: u8) {
+        self.vm.cpu.set_isa_mode(mode);
+        self.set_pc(self.get_pc());
+    }
+
+    #[getter]
     pub fn get_pc(&self) -> u64 {
         self.vm.cpu.read_pc()
     }
