@@ -213,7 +213,7 @@ impl From<ExceptionCode> for ExceptionCodePy {
 
 #[allow(non_snake_case)]
 fn raise_MemoryException(message: String, e: MemError) -> PyErr {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let icicle = py.import("icicle").unwrap();
         let exception = icicle.getattr("MemoryException").unwrap();
         let args = (message, MemoryExceptionCode::from(e));

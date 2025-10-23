@@ -13,11 +13,6 @@ classifiers = [
     "License :: OSI Approved :: Boost Software License 1.0 (BSL-1.0)",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Development Status :: 5 - Production/Stable",
     "Operating System :: POSIX",
     "Operating System :: MacOS :: MacOS X",
@@ -31,8 +26,7 @@ Homepage = "https://github.com/icicle-emu/icicle-python"
 [tool.maturin]
 python-source = "python"
 module-name = "icicle.icicle"
-features = ["extension-module"]
-bindings = "pyo3"
+features = ["pyo3/extension-module"]
 
 [dependency-groups]
 dev = [
