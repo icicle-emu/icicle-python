@@ -2728,7 +2728,8 @@ enterFrames: low5 is low5 { tmp:1 = low5; export tmp; }
 # as a NOP.  We treat it as a NOP as well.
 :FSETPM 	is vexMode=0 & byte=0xdb; byte=0xe4	{ } # 80287 set protected mode
 
-:HLT            is vexMode=0 & byte=0xf4                        { goto inst_start; }
+define pcodeop hlt;
+:HLT            is vexMode=0 & byte=0xf4                        { hlt(); }
 
 :IDIV rm8       is vexMode=0 & byte=0xf6;  rm8 & reg_opcode=7 ...           { rm8ext:2 = sext(rm8);
                                                   local quotient = AX s/ rm8ext;  # DE exception if quotient doesn't fit in AL
