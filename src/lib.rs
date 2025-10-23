@@ -3,9 +3,7 @@ use std::collections::HashMap;
 use icicle_cpu::mem::{Mapping, MemError, perm};
 use icicle_cpu::{Cpu, ExceptionCode, ValueSource, VmExit};
 use pyo3::prelude::*;
-use icicle_vm;
 use pyo3::exceptions::*;
-use target_lexicon;
 use indexmap::IndexMap;
 use target_lexicon::Architecture;
 use sleigh_runtime::NamedRegister;
@@ -255,6 +253,11 @@ fn reg_find<'a>(i: &'a Icicle, name: &str) -> PyResult<&'a NamedRegister> {
     }
 }
 
+fn reg_var<'a>(i: &'a Icicle, name: &str) -> PyResult<pcode::VarNode> {
+    let var = reg_find(i, name)?.get_var();
+    var.ok_or(PyKeyError::new_err(format!("Register var too large: {name}")))
+}
+
 #[pymethods]
 impl Icicle {
     #[getter]
@@ -373,7 +376,7 @@ impl Icicle {
         let mut config = icicle_vm::cpu::Config::from_target_triple(
             format!("{architecture}-none").as_str()
         );
-        if config.triple.architecture == target_lexicon::Architecture::Unknown {
+        if config.triple.architecture == Architecture::Unknown {
             return Err(
                 PyException::new_err(format!("Unknown architecture: {architecture}"))
             );
@@ -404,7 +407,7 @@ impl Icicle {
         // Special handling for x86 flags
         match config.triple.architecture {
             Architecture::X86_32(_) | Architecture::X86_64 | Architecture::X86_64h => {
-                let eflags = sleigh.get_reg("eflags").unwrap().var;
+                let eflags = sleigh.get_reg("eflags").unwrap().get_var().unwrap();
                 let reg_handler = X86FlagsRegHandler { eflags };
                 vm.cpu.add_reg_handler(eflags.id, Box::new(reg_handler));
             }
@@ -470,7 +473,7 @@ impl Icicle {
         Ok(())
     }
 
-    pub fn mem_read(&mut self, address: u64, size: usize) -> PyResult<Cow<[u8]>> {
+    pub fn mem_read(&mut self, address: u64, size: usize) -> PyResult<Cow<'_, [u8]>> {
         // Allocate a buffer
         let mut buffer = Vec::with_capacity(size);
         buffer.resize(size, 0);
@@ -502,7 +505,10 @@ impl Icicle {
         let sleigh = &self.vm.cpu.arch.sleigh;
         for reg in &sleigh.named_registers {
             let name = sleigh.get_str(reg.name);
-            result.insert(name.to_string(), (reg.offset, reg.var.size));
+            let var = reg.get_var();
+            if let Some(var) = var {
+                result.insert(name.to_string(), (reg.offset, var.size));
+            }
         }
         Ok(result)
     }
@@ -512,15 +518,15 @@ impl Icicle {
     }
 
     pub fn reg_size(&self, name: &str) -> PyResult<u8> {
-        Ok(reg_find(self, name)?.var.size)
+        Ok(reg_var(self, name)?.size)
     }
 
     pub fn reg_read(&mut self, name: &str) -> PyResult<u64> {
-        Ok(self.vm.cpu.read_reg(reg_find(self, name)?.var))
+        Ok(self.vm.cpu.read_reg(reg_var(self, name)?))
     }
 
     pub fn reg_write(&mut self, name: &str, value: u64) -> PyResult<()> {
-        let var = reg_find(self, name)?.var;
+        let var = reg_var(self, name)?;
         if var == self.vm.cpu.arch.reg_pc {
             self.vm.cpu.write_pc(value);
         } else {

@@ -4,7 +4,6 @@ exclude = ["icicle-emu"]
 
 [package]
 name = "icicle-python"
-version = "0.0.11"
 edition = "2021"
 
 [lib]
@@ -20,10 +19,10 @@ icicle-cpu = { path = "icicle-emu/icicle-cpu" }
 icicle-vm = { path = "icicle-emu/icicle-vm" }
 pcode = { path = "icicle-emu/sleigh/pcode" }
 sleigh-runtime = { path = "icicle-emu/sleigh/sleigh-runtime" }
-indexmap = "2.2.6"
-target-lexicon = "0.12.7"
+indexmap = "*"
+target-lexicon = "*"
 tracing = "*"
-tracing-subscriber = "0.3.17"
+tracing-subscriber = "*"
 
 [build-dependencies]
 pyo3-build-config = "0.23.3"

@@ -1,6 +1,6 @@
 # icicle-python
 
-This project is an easy to use Python wrapper around [icicle-emu](https://github.com/icicle-emu/icicle-emu). You can read more about Icicle in the paper: [Icicle: A Re-designed Emulator for Grey-Box Firmware Fuzzing](https://arxiv.org/pdf/2301.13346.pdf).
+This project is an easy-to-use Python wrapper around [icicle-emu](https://github.com/icicle-emu/icicle-emu). You can read more about Icicle in the paper: [Icicle: A Re-designed Emulator for Grey-Box Firmware Fuzzing](https://arxiv.org/pdf/2301.13346.pdf).
 
 ## Installation
 
@@ -12,21 +12,41 @@ pip install icicle-emu
 
 ## Development
 
-_Note_: You need to install [Rust 1.85](https://rustup.rs) or later to build from source.
+_Note_: You need to install [Rust 1.90](https://rustup.rs) or later to build from source.
 
-Set up a virtual environment:
+### Install uv
 
 ```shell
-python -m venv venv
-# macOS/Linux
-source venv/bin/activate
-# Windows
-venv\Scripts\activate.bat
+# On Windows
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# On macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Get the dependencies and build:
+### Build the project
 
 ```shell
-pip install -r requirements.txt
-python setup.py develop
+# Clone the repository with submodules
+git clone --recursive https://github.com/icicle-emu/icicle-python
+cd icicle-python
+
+# Install dependencies and build
+uv sync
+uv run maturin develop
+```
+
+### Running tests
+
+The `tests` folder contains tests that double as standalone examples. Prefix a function with `test_` to automatically run it:
+
+```shell
+uv run pytest
+```
+
+Alternatively you can `uv run tests/example.py` to run/debug the standalone example.
+
+### Building a wheel
+
+```shell
+uv build
 ```

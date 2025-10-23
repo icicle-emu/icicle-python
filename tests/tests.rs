@@ -10,6 +10,12 @@ fn example() -> PyResult<()> {
     Err(pyo3::exceptions::PyException::new_err("test"))
 }
 
+fn new_i686() -> PyResult<()> {
+    let mut vm = Icicle::new("i686".to_string(), true, true, false, true, false, true, false, false)?;
+    assert_eq!(vm.get_architecture(), "i686");
+    Ok(())
+}
+
 fn new_vm(jit: bool) -> PyResult<Icicle> {
     Icicle::new(
         "x86_64".to_string(),
@@ -366,16 +372,17 @@ fn main() {
     }
 
     let tests: Vec<(&str, fn() -> PyResult<()>)> = vec![
-        //("NX (block start)", nx_start),
-        //("NX (block middle)", nx_middle),
-        //("Invalid instruction (block start)", inv_start),
-        //("Invalid instruction (block middle)", inv_middle),
-        //("Block optimization bug", block_optimization),
-        //("Rewind", rewind),
-        //("Execute only", execute_only),
+        ("New i686", new_i686),
+        ("NX (block start)", nx_start),
+        ("NX (block middle)", nx_middle),
+        ("Invalid instruction (block start)", inv_start),
+        ("Invalid instruction (block middle)", inv_middle),
+        ("Block optimization bug", block_optimization),
+        ("Rewind", rewind),
+        ("Execute only", execute_only),
         ("Execute uninitialized", execute_uninitialized),
-        //("Step modify rip", step_modify_rip),
-        //("EFlags reconstruction", eflags_reconstruction),
+        ("Step modify rip", step_modify_rip),
+        ("EFlags reconstruction", eflags_reconstruction),
     ];
 
     let mut success = 0;
