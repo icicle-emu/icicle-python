@@ -1,7 +1,41 @@
 [build-system]
-requires = [
-    "setuptools",
-    "wheel",
-    "setuptools-rust",
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "icicle-emu"
+version = "1.0.0"
+description = "Python bindings for the Icicle emulator."
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.8"
+classifiers = [
+    "License :: OSI Approved :: Boost Software License 1.0 (BSL-1.0)",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
 ]
-build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/icicle-emu/icicle-python"
+"Bug Tracker" = "https://github.com/icicle-emu/icicle-python/issues"
+
+[tool.maturin]
+python-source = "python"
+module-name = "icicle.icicle"
+features = ["pyo3/extension-module"]
+
+[dependency-groups]
+dev = [
+    "maturin>=1.7.8",
+    "pytest>=8.3.3",
+    "capstone>=5.0.6",
+    "keystone-engine>=0.9.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["*.py"]

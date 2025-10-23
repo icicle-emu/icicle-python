@@ -9,7 +9,7 @@ Scenarios:
 
 from icicle import *
 
-def nx():
+def test_nx():
     vm = Icicle("x86_64", jit=False)
     page = 0x10000
     vm.mem_map(page, 0x1000, MemoryProtection.ReadOnly)
@@ -22,7 +22,7 @@ def nx():
     assert vm.exception_code == ExceptionCode.ExecViolation
     assert vm.exception_value == page
 
-def inv_start():
+def test_inv_start():
     vm = Icicle("x86_64", jit=False)
     page = 0x10000
     vm.mem_map(page, 0x1000, MemoryProtection.ExecuteRead)
@@ -35,7 +35,7 @@ def inv_start():
     assert vm.exception_code == ExceptionCode.InvalidInstruction
     assert vm.exception_value == page
 
-def inv_middle():
+def test_inv_middle():
     vm = Icicle("x86_64", jit=False)
     page = 0x10000
     vm.mem_map(page, 0x1000, MemoryProtection.ExecuteRead)
@@ -50,11 +50,11 @@ def inv_middle():
 
 def main():
     print("=== NX ===")
-    nx()
+    test_nx()
     print("=== Invalid instruction (block start) ===")
-    inv_start()
+    test_inv_start()
     print("=== Invalid instruction (block middle) ===")
-    inv_middle()
+    test_inv_middle()
     print("\nSUCCESS")
 
 if __name__ == "__main__":
