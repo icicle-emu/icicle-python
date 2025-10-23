@@ -1,8 +1,7 @@
 import icicle
-import keystone
-import capstone
 
 def assemble(code: str, addr: int = 0) -> bytes:
+    import keystone
     ks = keystone.Ks(keystone.KS_ARCH_X86, keystone.KS_MODE_64)
     encoding, count = ks.asm(code, addr)
     if encoding is None:
@@ -10,6 +9,7 @@ def assemble(code: str, addr: int = 0) -> bytes:
     return bytes(encoding)
 
 def disassemble(code: bytes, addr: int = 0, max_count = 1000) -> str:
+    import capstone
     result = ""
     cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
     count = 0
