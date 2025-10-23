@@ -96,6 +96,12 @@ class Icicle:
     @property
     def exception_value(self) -> int: ...
 
+    @property
+    def exception_size(self) -> int: ...
+
+    @property
+    def exception_data(self) -> bytes: ...
+
     icount: int
 
     icount_limit: int
@@ -147,12 +153,15 @@ class Icicle:
 def architectures() -> List[str]: ...
 
 class MemoryException(Exception):
-    def __init__(self, message: str, code: MemoryExceptionCode):
+    def __init__(self, message: str, code: MemoryExceptionCode, size: int = 0, data: bytes = b""):
         super().__init__(message)
         self.code = code
+        self.size = size
+        self.data = data
 
     def __str__(self):
-        return f"{super().__str__()} ({self.code})"
+        data_hex = self.data.hex() if self.data else "none"
+        return f"{super().__str__()}: {self.code} (size={self.size}, data={data_hex})"
 
 def __ghidra_init():
     import os

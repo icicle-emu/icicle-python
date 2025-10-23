@@ -291,6 +291,50 @@ impl Icicle {
     }
 
     #[getter]
+    pub fn get_exception_size(&self) -> u32 {
+        self.vm.cpu.exception.size
+    }
+
+    #[getter]
+    pub fn get_exception_data(&self) -> Vec<u8> {
+        // For read exceptions, there should be no data (the read failed)
+        // For write exceptions, return the data that was attempted to be written
+        let code = ExceptionCode::from_u32(self.vm.cpu.exception.code);
+
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("debug_exception.log").unwrap();
+        writeln!(f, "exception code raw={}, parsed={:?}", self.vm.cpu.exception.code, code).unwrap();
+        writeln!(f, "data.len()={}, size={}", self.vm.cpu.exception.data.len(), self.vm.cpu.exception.size).unwrap();
+
+        // Check if this is a read exception
+        match code {
+            ExceptionCode::ReadUnmapped |
+            ExceptionCode::ReadPerm |
+            ExceptionCode::ReadUnaligned |
+            ExceptionCode::ReadWatch |
+            ExceptionCode::ReadUninitialized => {
+                writeln!(f, "Returning empty for read exception").unwrap();
+                // Read exceptions have no data
+                Vec::new()
+            }
+            _ => {
+                writeln!(f, "Returning data for non-read exception").unwrap();
+                // For other exceptions (writes), return the actual data
+                let size = self.vm.cpu.exception.size as usize;
+                let data_len = self.vm.cpu.exception.data.len();
+                if data_len == 0 {
+                    Vec::new()
+                } else {
+                    self.vm.cpu.exception.data[..size.min(data_len)].to_vec()
+                }
+            }
+        }
+    }
+
+    #[getter]
     pub fn get_architecture(&self) -> String {
         self.architecture.to_string()
     }
