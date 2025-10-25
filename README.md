@@ -12,7 +12,7 @@ pip install icicle-emu
 
 ## Development
 
-_Note_: You need to install [Rust 1.90](https://rustup.rs) or later to build from source.
+_Note_: You need to install [Rust 1.90](https://rustup.rs) or higher to build from source.
 
 ### Install uv
 
@@ -40,7 +40,7 @@ uv run maturin develop
 The `tests` folder contains tests that double as standalone examples. Prefix a function with `test_` to automatically run it:
 
 ```shell
-uv run pytest
+uv run pytest -v
 ```
 
 Alternatively you can `uv run tests/example.py` to run/debug the standalone example.

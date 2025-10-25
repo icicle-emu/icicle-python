@@ -47,7 +47,7 @@ jobs:
           echo "LD_LIBRARY_PATH=${LIBDIR}:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
 
       - name: Run Python tests
-        run: uv run pytest
+        run: uv run pytest -v
 
       - name: Run Rust tests
         run: cargo run
@@ -108,7 +108,7 @@ jobs:
           args: --release --out dist --find-interpreter
 
       - name: Run Python tests
-        run: uv run pytest
+        run: uv run pytest -v
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -162,7 +162,7 @@ jobs:
 
       - name: Run Python tests
         if: matrix.target == 'aarch64'
-        run: uv run pytest
+        run: uv run pytest -v
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4

@@ -1,6 +1,7 @@
 [package]
 name = "icicle-python"
 edition = "2021"
+rust-version = "1.90.0"
 
 [lib]
 name = "icicle"
